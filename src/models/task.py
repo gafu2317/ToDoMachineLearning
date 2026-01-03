@@ -28,12 +28,30 @@ class Task:
     @staticmethod
     def generate_random_task(task_id: int, current_time: datetime) -> 'Task':
         name = f"Task_{task_id}"
-        base_duration = random.randint(15, 180)  # 15分-3時間
-        priority = random.choice(list(Priority))
         
-        # 締切は1-7日後
-        deadline_days = random.randint(1, 7)
-        deadline = current_time + timedelta(days=deadline_days)
+        # 時間分布: 短時間が多め
+        rand = random.random()
+        if rand < 0.7:  # 70%
+            base_duration = random.randint(15, 60)
+        elif rand < 0.9:  # 20%
+            base_duration = random.randint(60, 120)
+        else:  # 10%
+            base_duration = random.randint(120, 180)
+        
+        # 重要度分布: LOWが多め
+        rand = random.random()
+        if rand < 0.6:  # 60%
+            priority = Priority.LOW
+        elif rand < 0.85:  # 25%
+            priority = Priority.MEDIUM
+        else:  # 15%
+            priority = Priority.HIGH
+        
+        # 締切: 時間と重要度の両方を考慮
+        time_factor = base_duration / 60  # 時間の影響
+        priority_factor = priority.value  # 重要度の影響
+        base_days = 1 + time_factor + priority_factor
+        deadline = current_time + timedelta(days=base_days)
         
         return Task(
             id=task_id,
