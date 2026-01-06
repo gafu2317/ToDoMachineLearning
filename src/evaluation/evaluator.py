@@ -6,6 +6,7 @@ from ..models.concentration import ConcentrationModel
 from ..schedulers.scheduler import Scheduler
 from ..schedulers.task_selectors import DeadlineTaskSelector, PriorityTaskSelector, RandomTaskSelector
 from ..schedulers.break_strategies import ConcentrationBreakStrategy
+from ..schedulers.rl_learning_scheduler import RLLearningScheduler
 
 
 class SchedulerEvaluator:
@@ -38,6 +39,16 @@ class SchedulerEvaluator:
             break_strategy = ConcentrationBreakStrategy(concentration_model)
             scheduler = Scheduler(task_selector, break_strategy)
             schedulers[name] = scheduler
+        
+        # 強化学習スケジューラーを追加
+        rl_concentration_model = ConcentrationModel()
+        rl_scheduler = RLLearningScheduler(
+            concentration_model=rl_concentration_model,
+            learning_rate=0.1,
+            discount_factor=0.9,
+            epsilon=0.1
+        )
+        schedulers["rl_scheduler"] = rl_scheduler
         
         return schedulers
     

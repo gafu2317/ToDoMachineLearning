@@ -71,6 +71,24 @@ class TaskSchedulingSimulation:
         """
         # 初期化
         tasks = self.generate_tasks()
+        return self.run_simulation_with_tasks(scheduler, tasks)
+    
+    def run_simulation_with_tasks(self, scheduler: Scheduler, tasks: List[Task]) -> Dict[str, Any]:
+        """
+        事前生成されたタスクセットでシミュレーションを実行する
+        
+        Args:
+            scheduler: 使用するスケジューラー
+            tasks: 実行するタスクのリスト
+            
+        Returns:
+            シミュレーション結果の辞書
+        """
+        # タスクリストをディープコピーして、元のタスクに影響しないようにする
+        import copy
+        tasks_copy = copy.deepcopy(tasks)
+        
+        # 初期化
         scheduler.reset()
         current_time = self.start_time
         current_day = 0
@@ -89,7 +107,7 @@ class TaskSchedulingSimulation:
             
             while current_day_work_time < self.work_minutes_per_day:
                 # 次のタスクを選択
-                selected_task = scheduler.select_next_task(tasks, current_time)
+                selected_task = scheduler.select_next_task(tasks_copy, current_time)
                 
                 if selected_task is None:
                     # 休憩が必要または作業可能なタスクがない
@@ -133,7 +151,7 @@ class TaskSchedulingSimulation:
             current_day += 1
         
         # 結果を計算
-        return self._calculate_results(tasks, completed_tasks, total_work_time, total_break_time, simulation_log)
+        return self._calculate_results(tasks_copy, completed_tasks, total_work_time, total_break_time, simulation_log)
     
     def _calculate_results(self, 
                           all_tasks: List[Task], 
