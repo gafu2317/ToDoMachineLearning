@@ -156,30 +156,33 @@ class QLearningTaskSelector(TaskSelector):
                         completed: bool, 
                         current_time: datetime,
                         concentration_level: float) -> float:
-        """報酬を計算"""
+        """報酬を計算（修正版）"""
         
         reward = 0.0
         
         if completed:
-            # 基本完了報酬（スコアに基づく）
-            base_reward = task.get_score()
+            # 基本完了報酬（スコアに基づく、スケールを調整）
+            base_reward = task.get_score() * 0.1  # スケールダウン
             reward += base_reward
             
-            # 締切遵守ボーナス
+            # 締切遵守ボーナス（穏やかに）
             if current_time <= task.deadline:
                 days_early = (task.deadline - current_time).days
-                deadline_bonus = min(days_early * 10, 100)  # 早期完了ボーナス
+                deadline_bonus = min(days_early * 2, 20)  # 早期完了ボーナス（小さく）
                 reward += deadline_bonus
             else:
-                # 締切違反ペナルティ
+                # 締切違反ペナルティ（穏やかに）
                 days_late = (current_time - task.deadline).days
-                deadline_penalty = days_late * 50  # 遅延ペナルティ
+                deadline_penalty = min(days_late * 5, 50)  # 遅延ペナルティ（制限）
                 reward -= deadline_penalty
             
             # 高集中完了ボーナス
             if concentration_level > 0.7:
-                concentration_bonus = 20
+                concentration_bonus = 5
                 reward += concentration_bonus
+        else:
+            # 作業開始の小さな報酬（行動を促す）
+            reward += 1.0
         
         return reward
     

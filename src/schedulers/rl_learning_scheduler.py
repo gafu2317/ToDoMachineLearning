@@ -94,3 +94,57 @@ class RLLearningScheduler(Scheduler):
     def set_epsilon(self, epsilon: float):
         """探索率を設定（学習段階の調整用）"""
         self.task_selector.epsilon = epsilon
+    
+    def train_episodes(self, 
+                      simulation_environment,
+                      num_episodes: int = 100,
+                      verbose: bool = True):
+        """
+        複数回のエピソードで学習を行う
+        
+        Args:
+            simulation_environment: TaskSchedulingSimulation環境
+            num_episodes: 学習エピソード数
+            verbose: 学習過程を表示するか
+        """
+        if verbose:
+            print(f"強化学習の事前学習を開始 ({num_episodes}エピソード)")
+        
+        # 学習中は高い探索率
+        original_epsilon = self.task_selector.epsilon
+        self.task_selector.epsilon = 0.5  # 高い探索率で学習
+        
+        total_rewards = []
+        
+        for episode in range(num_episodes):
+            # 新しいタスクセットで学習
+            training_tasks = simulation_environment.generate_tasks()
+            
+            # エピソード実行
+            result = simulation_environment.run_simulation_with_tasks(self, training_tasks)
+            
+            # エピソード報酬を記録
+            episode_reward = sum(self.task_selector.reward_history[-len(training_tasks):]) if self.task_selector.reward_history else 0
+            total_rewards.append(episode_reward)
+            
+            # 進捗表示
+            if verbose and (episode + 1) % 20 == 0:
+                avg_reward = sum(total_rewards[-20:]) / 20
+                print(f"  エピソード {episode + 1}/{num_episodes}, 平均報酬: {avg_reward:.1f}")
+            
+            # エピソード終了処理
+            self.reset()
+        
+        # 学習完了後は探索率を下げる
+        self.task_selector.epsilon = max(0.1, original_epsilon)
+        
+        if verbose:
+            final_avg_reward = sum(total_rewards[-10:]) / min(10, len(total_rewards))
+            print(f"✅ 学習完了！最終10エピソードの平均報酬: {final_avg_reward:.1f}")
+            print(f"Q-table サイズ: {len(self.task_selector.q_table)} 状態")
+        
+        return {
+            'episode_rewards': total_rewards,
+            'final_average_reward': final_avg_reward,
+            'q_table_size': len(self.task_selector.q_table)
+        }

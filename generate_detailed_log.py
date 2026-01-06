@@ -11,54 +11,23 @@ from datetime import datetime
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from src.environment.simulation import TaskSchedulingSimulation
-from src.models.concentration import ConcentrationModel
-from src.schedulers.scheduler import Scheduler
-from src.schedulers.task_selectors import DeadlineTaskSelector, PriorityTaskSelector, RandomTaskSelector
-from src.schedulers.break_strategies import ConcentrationBreakStrategy
-from src.schedulers.rl_learning_scheduler import RLLearningScheduler
 from src.evaluation.log_analyzer import SimulationLogAnalyzer
+from src.utils.scheduler_factory import create_baseline_schedulers, create_rl_scheduler
+from config import DEFAULT_SIMULATION_CONFIG
 
 
 def main():
     """各スケジューラーの詳細ログを生成"""
     print("詳細スケジュールログ生成を開始...")
     
-    # シミュレーション設定（1週間フル）
-    simulation = TaskSchedulingSimulation(
-        simulation_days=7,    # 7日間（1週間）
-        work_hours_per_day=8, # 8時間（フルタイム）
-        num_tasks=80          # 80個のタスク
-    )
+    # シミュレーション設定
+    simulation = TaskSchedulingSimulation(**DEFAULT_SIMULATION_CONFIG)
     
     # スケジューラー設定
-    schedulers = {}
+    schedulers = create_baseline_schedulers()
     
-    # 期限順スケジューラー
-    concentration1 = ConcentrationModel()
-    break_strategy1 = ConcentrationBreakStrategy(concentration1)
-    task_selector1 = DeadlineTaskSelector()
-    schedulers["deadline_scheduler"] = Scheduler(task_selector1, break_strategy1)
-    
-    # 重要度順スケジューラー
-    concentration2 = ConcentrationModel()
-    break_strategy2 = ConcentrationBreakStrategy(concentration2)
-    task_selector2 = PriorityTaskSelector()
-    schedulers["priority_scheduler"] = Scheduler(task_selector2, break_strategy2)
-    
-    # ランダムスケジューラー
-    concentration3 = ConcentrationModel()
-    break_strategy3 = ConcentrationBreakStrategy(concentration3)
-    task_selector3 = RandomTaskSelector()
-    schedulers["random_scheduler"] = Scheduler(task_selector3, break_strategy3)
-    
-    # 強化学習スケジューラー
-    concentration4 = ConcentrationModel()
-    schedulers["rl_scheduler"] = RLLearningScheduler(
-        concentration_model=concentration4,
-        learning_rate=0.1,
-        discount_factor=0.9,
-        epsilon=0.3  # 探索率を上げて多様な行動を試す
-    )
+    # 強化学習スケジューラーを追加
+    schedulers["rl_scheduler"] = create_rl_scheduler(trained=False)
     
     # ログアナライザーを作成
     log_analyzer = SimulationLogAnalyzer()

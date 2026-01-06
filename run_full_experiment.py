@@ -11,6 +11,7 @@ from datetime import datetime
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from src.evaluation.evaluator import SchedulerEvaluator
+from config import DEFAULT_SIMULATION_CONFIG, EXPERIMENT_CONFIG
 
 
 def main():
@@ -19,10 +20,8 @@ def main():
     
     # 実験設定
     evaluator = SchedulerEvaluator(
-        num_experiments=30,   # 30回実験（強化学習は時間がかかるので少し減らす）
-        simulation_days=7,    # 1週間
-        work_hours_per_day=8, # 8時間
-        num_tasks=80          # 80個のタスク
+        num_experiments=EXPERIMENT_CONFIG['num_experiments'],
+        **DEFAULT_SIMULATION_CONFIG
     )
     
     print("実験実行中... (強化学習含むため時間がかかります)")
@@ -32,18 +31,18 @@ def main():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
     # CSVファイルに詳細データを保存
-    csv_path = f"results/full_experiment_results_{timestamp}.csv"
-    os.makedirs("results", exist_ok=True)
+    csv_path = f"{EXPERIMENT_CONFIG['output_dir']}/full_experiment_results_{timestamp}.csv"
+    os.makedirs(EXPERIMENT_CONFIG['output_dir'], exist_ok=True)
     results_df.to_csv(csv_path, index=False, encoding='utf-8')
     print(f"詳細データを保存: {csv_path}")
     
     # レポートを生成・保存
-    report_path = f"results/full_experiment_report_{timestamp}.md"
+    report_path = f"{EXPERIMENT_CONFIG['output_dir']}/full_experiment_report_{timestamp}.md"
     report = evaluator.generate_report(results_df, save_path=report_path)
     print(f"レポートを保存: {report_path}")
     
     # 強化学習の詳細分析
-    rl_analysis_path = f"results/rl_analysis_{timestamp}.txt"
+    rl_analysis_path = f"{EXPERIMENT_CONFIG['output_dir']}/rl_analysis_{timestamp}.txt"
     with open(rl_analysis_path, 'w', encoding='utf-8') as f:
         f.write("# 強化学習スケジューラー詳細分析\n\n")
         
