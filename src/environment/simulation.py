@@ -141,11 +141,25 @@ class TaskSchedulingSimulation:
             day_start_time = self.start_time + timedelta(days=current_day)
             current_time = day_start_time
             current_day_work_time = 0
+
+            # 朝は集中力をリセット（新しい1日）
+            scheduler.concentration_model.reset()
             
             while current_day_work_time < self.work_minutes_per_day:
+                # 残り時間を計算
+                remaining_time = self.work_minutes_per_day - current_day_work_time
+
                 # 次のタスクを選択
                 selected_task = scheduler.select_next_task(tasks_copy, current_time)
-                
+
+                # タスクが選択された場合、残り時間内に収まるかチェック
+                if selected_task is not None:
+                    # 最悪ケース（効率1.2倍）でも収まるかチェック
+                    worst_case_duration = selected_task.base_duration_minutes * 1.2
+                    if worst_case_duration > remaining_time:
+                        # 残り時間に収まらないので、このタスクはスキップ
+                        selected_task = None
+
                 if selected_task is None:
                     # 休憩が必要または作業可能なタスクがない
                     if scheduler.should_take_break():
