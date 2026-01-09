@@ -4,10 +4,12 @@
 """
 import numpy as np
 import pickle
+import os
 from typing import List, Dict, Tuple, Optional
 from datetime import datetime
 from .task_selectors import TaskSelector
 from ..models.task import Task, Priority
+from config import SCHEDULING_CONFIG, RL_REWARD_CONFIG
 
 
 class PolicyBasedQLearningSelector(TaskSelector):
@@ -116,11 +118,12 @@ class PolicyBasedQLearningSelector(TaskSelector):
         """ポリシーに基づいてタスクを選択"""
 
         policy = self.ACTIONS[action]
+        config = SCHEDULING_CONFIG
 
-        # まず、実行可能なタスクを優先（120分以下）
+        # まず、実行可能なタスクを優先
         # 長時間タスクは時間の余裕がある状態でのみ選択
-        short_tasks = [t for t in tasks if t.base_duration_minutes <= 90]
-        medium_tasks = [t for t in tasks if t.base_duration_minutes <= 120]
+        short_tasks = [t for t in tasks if t.base_duration_minutes <= config['short_task_threshold']]
+        medium_tasks = [t for t in tasks if t.base_duration_minutes <= config['medium_task_threshold']]
 
         # 選択候補: 短いタスクを優先、なければ中程度、なければ全体
         candidate_tasks = short_tasks if short_tasks else (medium_tasks if medium_tasks else tasks)
@@ -143,27 +146,30 @@ class PolicyBasedQLearningSelector(TaskSelector):
 
         elif policy == "priority_deadline_mix":
             # 重要度と締切のバランス
-            def score_fn(t):
-                days_until_deadline = (t.deadline - current_time).total_seconds() / 86400
+            seconds_per_day = config['seconds_per_day']
+
+            def urgency_score(t):
+                days_until_deadline = (t.deadline - current_time).total_seconds() / seconds_per_day
                 urgency = 1.0 / max(days_until_deadline, 0.1)  # 締切が近いほど高い
                 return t.priority.value * 2 + urgency
 
-            return max(candidate_tasks, key=score_fn)
+            return max(candidate_tasks, key=urgency_score)
 
         elif policy == "concentration_matched":
             # 集中力に合った難易度のタスクを選ぶ（成功確率が高いものを優先）
             # 成功確率が高い順にソートして、その中でスコアが高いものを選ぶ
-            def match_score(t):
+            def concentration_match_score(t):
                 success_prob = t.get_success_probability(concentration_level)
                 # 成功確率とスコアの両方を考慮
                 return success_prob * t.get_score()
 
-            return max(candidate_tasks, key=match_score)
+            return max(candidate_tasks, key=concentration_match_score)
 
         elif policy == "safe_high_priority":
-            # 成功確率が70%以上のタスクの中で、重要度が高いものを選ぶ
+            # 成功確率が一定以上のタスクの中で、重要度が高いものを選ぶ
+            safe_probability = config['safe_success_probability']
             safe_tasks = [t for t in candidate_tasks
-                         if t.get_success_probability(concentration_level) >= 0.7]
+                         if t.get_success_probability(concentration_level) >= safe_probability]
 
             if safe_tasks:
                 return max(safe_tasks, key=lambda t: (t.priority.value, t.get_score()))
@@ -224,29 +230,30 @@ class PolicyBasedQLearningSelector(TaskSelector):
                         current_time: datetime,
                         concentration_level: float) -> float:
         """報酬を計算（失敗ペナルティ付き）"""
+        config = RL_REWARD_CONFIG
 
         if completed:
             # 基本完了報酬（スコアベース）
             reward = task.get_score()
 
             # 高集中完了ボーナス
-            if concentration_level > 0.7:
-                reward += 20
+            if concentration_level > config['high_concentration_threshold']:
+                reward += config['high_concentration_bonus']
 
             # 難易度ボーナス（難しいタスクを成功させた場合）
-            if task.difficulty == 3 and concentration_level >= 0.8:
-                reward += 30
+            if task.difficulty == 3 and concentration_level >= config['difficulty_bonus_threshold']:
+                reward += config['difficulty_bonus']
 
             return reward
         else:
             # 失敗ペナルティ
             # - 時間を無駄にした（作業時間分のコスト）
             # - 難しいタスクを集中力不足で実行したペナルティ
-            penalty = -task.base_duration_minutes * 0.5
+            penalty = -task.base_duration_minutes * config['failure_time_penalty_multiplier']
 
             # 集中力が足りないのに難しいタスクを選んだ場合は大きなペナルティ
-            if task.difficulty >= 2 and concentration_level < 0.6:
-                penalty -= 50
+            if task.difficulty >= 2 and concentration_level < config['reckless_concentration_threshold']:
+                penalty -= config['reckless_attempt_penalty']
 
             return penalty
 
@@ -266,21 +273,40 @@ class PolicyBasedQLearningSelector(TaskSelector):
 
     def save_q_table(self, filepath: str):
         """Q-tableを保存"""
-        save_data = {
-            'q_table': self.q_table,
-            'learning_rate': self.learning_rate,
-            'discount_factor': self.discount_factor,
-            'epsilon': self.epsilon
-        }
-        with open(filepath, 'wb') as f:
-            pickle.dump(save_data, f)
+        try:
+            # ディレクトリが存在しない場合は作成
+            os.makedirs(os.path.dirname(filepath), exist_ok=True)
+
+            save_data = {
+                'q_table': self.q_table,
+                'learning_rate': self.learning_rate,
+                'discount_factor': self.discount_factor,
+                'epsilon': self.epsilon
+            }
+            with open(filepath, 'wb') as f:
+                pickle.dump(save_data, f)
+        except (IOError, OSError) as e:
+            raise IOError(f"Q-tableの保存に失敗しました: {filepath}") from e
 
     def load_q_table(self, filepath: str):
         """Q-tableを読み込み"""
-        with open(filepath, 'rb') as f:
-            save_data = pickle.load(f)
+        try:
+            if not os.path.exists(filepath):
+                raise FileNotFoundError(f"Q-tableファイルが見つかりません: {filepath}")
 
-        self.q_table = save_data['q_table']
-        self.learning_rate = save_data['learning_rate']
-        self.discount_factor = save_data['discount_factor']
-        self.epsilon = save_data['epsilon']
+            with open(filepath, 'rb') as f:
+                save_data = pickle.load(f)
+
+            # データの妥当性チェック
+            required_keys = ['q_table', 'learning_rate', 'discount_factor', 'epsilon']
+            if not all(key in save_data for key in required_keys):
+                raise ValueError(f"Q-tableファイルの形式が不正です: {filepath}")
+
+            self.q_table = save_data['q_table']
+            self.learning_rate = save_data['learning_rate']
+            self.discount_factor = save_data['discount_factor']
+            self.epsilon = save_data['epsilon']
+        except (IOError, OSError) as e:
+            raise IOError(f"Q-tableの読み込みに失敗しました: {filepath}") from e
+        except pickle.UnpicklingError as e:
+            raise ValueError(f"Q-tableファイルの形式が不正です: {filepath}") from e

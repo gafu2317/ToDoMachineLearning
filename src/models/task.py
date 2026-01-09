@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import List, Set
 import random
+from config import TASK_DIFFICULTY_CONFIG, TASK_GENERATION_CONFIG
 
 
 class Priority(Enum):
@@ -39,14 +40,9 @@ class Task:
         Returns:
             成功確率が50%以上ならTrue
         """
-        # 必要な集中力レベル（難易度に応じて）
-        required_concentration = {
-            1: 0.3,  # 簡単なタスク: 30%以上で成功
-            2: 0.6,  # 普通のタスク: 60%以上で成功
-            3: 0.8,  # 難しいタスク: 80%以上で成功
-        }
-
-        return concentration_level >= required_concentration.get(self.difficulty, 0.5)
+        thresholds = TASK_DIFFICULTY_CONFIG['concentration_thresholds']
+        required = thresholds.get(self.difficulty, 0.5)
+        return concentration_level >= required
 
     def get_success_probability(self, concentration_level: float) -> float:
         """
@@ -58,19 +54,20 @@ class Task:
         Returns:
             成功確率 (0.0 ~ 1.0)
         """
-        # 必要な集中力レベル
-        required_concentration = {
-            1: 0.3,
-            2: 0.6,
-            3: 0.8,
-        }.get(self.difficulty, 0.5)
+        config = TASK_DIFFICULTY_CONFIG
+        thresholds = config['concentration_thresholds']
+        required = thresholds.get(self.difficulty, 0.5)
 
         # 集中力が要件を満たしていれば成功確率は高い
-        if concentration_level >= required_concentration:
-            return min(1.0, 0.7 + (concentration_level - required_concentration) * 2)
+        if concentration_level >= required:
+            base_prob = config['base_success_probability']
+            multiplier = config['success_multiplier']
+            return min(1.0, base_prob + (concentration_level - required) * multiplier)
         else:
             # 要件を満たしていない場合は低い成功確率
-            return max(0.1, concentration_level / required_concentration * 0.5)
+            min_prob = config['min_success_probability']
+            fail_mult = config['failure_multiplier']
+            return max(min_prob, concentration_level / required * fail_mult)
 
     def is_ready_to_start(self, completed_task_ids: Set[int]) -> bool:
         """
@@ -87,23 +84,25 @@ class Task:
     @staticmethod
     def generate_random_task(task_id: int, current_time: datetime) -> 'Task':
         name = f"Task_{task_id}"
-        
+
+        config = TASK_GENERATION_CONFIG
+
         # 時間分布: 短時間が多め
         rand = random.random()
-        if rand < 0.7:  # 70%
-            base_duration = random.randint(15, 60)
-        elif rand < 0.9:  # 20%
-            base_duration = random.randint(60, 120)
-        else:  # 10%
-            base_duration = random.randint(120, 180)
-        
+        if rand < config['short_task_ratio']:
+            base_duration = random.randint(config['short_task_min'], config['short_task_max'])
+        elif rand < config['short_task_ratio'] + config['medium_task_ratio']:
+            base_duration = random.randint(config['short_task_max'], config['medium_task_max'])
+        else:
+            base_duration = random.randint(config['medium_task_max'], config['long_task_max'])
+
         # 重要度分布: LOWが多め
         rand = random.random()
-        if rand < 0.6:  # 60%
+        if rand < config['priority_low_ratio']:
             priority = Priority.LOW
-        elif rand < 0.85:  # 25%
+        elif rand < config['priority_low_ratio'] + config['priority_medium_ratio']:
             priority = Priority.MEDIUM
-        else:  # 15%
+        else:
             priority = Priority.HIGH
 
         # 難易度: 重要度と相関（重要なタスクほど難しい傾向）

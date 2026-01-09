@@ -1,5 +1,6 @@
 from typing import List, Optional
 from datetime import datetime
+import random
 from .task_selectors import TaskSelector
 from .break_strategies import BreakStrategy
 from ..models.task import Task
@@ -34,8 +35,6 @@ class Scheduler:
         Returns:
             (実際の所要時間（分）, 成功したかどうか)
         """
-        import random
-
         current_concentration = self.concentration_model.current_level
 
         # 成功確率を計算

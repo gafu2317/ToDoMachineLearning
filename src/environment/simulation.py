@@ -1,9 +1,11 @@
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
 import random
+import copy
 from ..models.task import Task
 from ..models.concentration import ConcentrationModel
 from ..schedulers.scheduler import Scheduler
+from config import TASK_GENERATION_CONFIG
 
 
 class TaskSchedulingSimulation:
@@ -45,10 +47,10 @@ class TaskSchedulingSimulation:
     
     def _add_dependencies(self, tasks: List[Task]) -> List[Task]:
         """タスクに依存関係を追加する"""
-        import random
+        config = TASK_GENERATION_CONFIG
 
-        # 30%のタスクが依存関係を持つ
-        num_dependent_tasks = int(len(tasks) * 0.3)
+        # 指定割合のタスクが依存関係を持つ
+        num_dependent_tasks = int(len(tasks) * config['dependency_ratio'])
 
         # 依存関係を持つタスクをランダムに選択（後半のタスクを優先）
         # IDが大きいタスクが小さいタスクに依存する（現実的）
@@ -60,7 +62,8 @@ class TaskSchedulingSimulation:
 
             # このタスクより前のタスクから1-2個を依存先として選ぶ
             num_deps = random.choice([1, 2])
-            possible_deps = list(range(max(0, i - 20), i))  # 直近20個の中から
+            window_size = config['dependency_window_size']
+            possible_deps = list(range(max(0, i - window_size), i))
 
             if possible_deps:
                 deps = random.sample(possible_deps, min(num_deps, len(possible_deps)))
@@ -111,16 +114,15 @@ class TaskSchedulingSimulation:
     def run_simulation_with_tasks(self, scheduler: Scheduler, tasks: List[Task]) -> Dict[str, Any]:
         """
         事前生成されたタスクセットでシミュレーションを実行する
-        
+
         Args:
             scheduler: 使用するスケジューラー
             tasks: 実行するタスクのリスト
-            
+
         Returns:
             シミュレーション結果の辞書
         """
         # タスクリストをディープコピーして、元のタスクに影響しないようにする
-        import copy
         tasks_copy = copy.deepcopy(tasks)
         
         # 初期化

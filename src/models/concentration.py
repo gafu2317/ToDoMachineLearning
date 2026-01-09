@@ -1,4 +1,5 @@
 import numpy as np
+from config import CONCENTRATION_LIMITS
 
 
 class ConcentrationModel:
@@ -19,16 +20,32 @@ class ConcentrationModel:
         self.continuous_work_time = 0
         
     def work(self, duration_minutes: int) -> float:
+        """
+        作業により集中力を減少させる
+
+        Args:
+            duration_minutes: 作業時間（分）
+
+        Returns:
+            作業効率の倍率
+
+        Raises:
+            ValueError: duration_minutesが負の値の場合
+        """
+        if duration_minutes < 0:
+            raise ValueError(f"作業時間は0以上である必要があります: {duration_minutes}")
+
         # 作業による疲労で集中力低下
         self.continuous_work_time += duration_minutes
-        
+
         # 集中力の減少（指数的に減衰）
         fatigue_factor = np.exp(-self.continuous_work_time / self.max_work_time)
         self.current_level = self.initial_level * fatigue_factor
-        
-        # 最低値は0.2に制限
-        self.current_level = max(0.2, self.current_level)
-        
+
+        # 最低値を制限
+        min_level = CONCENTRATION_LIMITS['min_level']
+        self.current_level = max(min_level, self.current_level)
+
         return self.get_efficiency_multiplier()
     
     def rest(self, duration_minutes: int = None):
