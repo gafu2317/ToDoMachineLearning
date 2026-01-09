@@ -47,16 +47,23 @@ class ScheduleVisualizer:
         """
         num_schedulers = len(results)
 
-        # Determine figure size (arrange horizontally)
-        fig, axes = plt.subplots(1, num_schedulers, figsize=(6 * num_schedulers, 10))
+        # Determine figure size (arrange horizontally with space for incomplete tasks chart)
+        fig = plt.figure(figsize=(6 * num_schedulers, 12))
 
-        # Convert to list if single scheduler
-        if num_schedulers == 1:
-            axes = [axes]
+        # Create grid: main schedule + incomplete task chart
+        gs = fig.add_gridspec(2, num_schedulers, height_ratios=[3, 1], hspace=0.3)
+
+        schedule_axes = []
+        incomplete_axes = []
+
+        for i in range(num_schedulers):
+            schedule_axes.append(fig.add_subplot(gs[0, i]))
+            incomplete_axes.append(fig.add_subplot(gs[1, i]))
 
         # Draw schedule for each scheduler
-        for ax, (scheduler_name, result) in zip(axes, results.items()):
+        for ax, incomplete_ax, (scheduler_name, result) in zip(schedule_axes, incomplete_axes, results.items()):
             self._draw_schedule(ax, scheduler_name, result)
+            self._draw_incomplete_tasks_chart(incomplete_ax, scheduler_name, result)
 
         plt.tight_layout()
         plt.savefig(output_path, dpi=150, bbox_inches='tight')
@@ -227,3 +234,95 @@ class ScheduleVisualizer:
                 return task
 
         return None
+
+    def _draw_incomplete_tasks_chart(self, ax, scheduler_name: str, result: Dict[str, Any]):
+        """
+        Draw incomplete tasks visualization with overdue status
+
+        Args:
+            ax: matplotlib axes
+            scheduler_name: Scheduler name
+            result: Simulation result
+        """
+        incomplete_tasks = result['tasks']['incomplete']
+
+        if not incomplete_tasks:
+            ax.text(0.5, 0.5, 'All tasks completed!',
+                   ha='center', va='center', fontsize=12, fontweight='bold',
+                   transform=ax.transAxes)
+            ax.axis('off')
+            return
+
+        # Get simulation end time
+        sim_end_time = datetime(2024, 1, 1 + self.simulation_days, self.start_hour, 0)
+
+        # Separate overdue and not-overdue tasks
+        overdue_tasks = []
+        not_overdue_tasks = []
+
+        for task in incomplete_tasks:
+            # Parse deadline from task dict (it might be a string in the result)
+            # We'll check if task has 'deadline' field, otherwise assume overdue if incomplete
+            task_id = task['id']
+            # For now, check against overdue list in result
+            if result.get('overdue_tasks_count', 0) > 0:
+                # Simple heuristic: if we have overdue tasks, mark them
+                overdue_tasks.append(task)
+            else:
+                not_overdue_tasks.append(task)
+
+        # Actually, let's count overdue properly by checking incomplete vs total
+        # Since we don't have deadline info in task dict, use result stats
+        overdue_count = result.get('overdue_tasks_count', 0)
+        total_incomplete = len(incomplete_tasks)
+
+        # Sort tasks by priority (HIGH -> MEDIUM -> LOW) and duration
+        priority_order = {'HIGH': 0, 'MEDIUM': 1, 'LOW': 2}
+        priority_value = {'HIGH': 3, 'MEDIUM': 2, 'LOW': 1}
+
+        # Calculate duration from score (score = duration * priority_value)
+        def get_duration(task):
+            score = task.get('score', 0)
+            priority = task['priority']
+            return score / priority_value[priority]
+
+        sorted_tasks = sorted(incomplete_tasks,
+                             key=lambda t: (priority_order[t['priority']], -get_duration(t)))
+
+        # Calculate total time and individual task durations
+        task_durations = []
+        total_time = 0
+        for task in sorted_tasks:
+            duration = get_duration(task)
+            task_durations.append(duration)
+            total_time += duration
+
+        # Draw individual task bars with separators
+        left = 0
+        for task, duration in zip(sorted_tasks, task_durations):
+            priority = task['priority']
+            color = self.PRIORITY_COLORS[priority]
+            width = duration / total_time if total_time > 0 else 0
+
+            # Draw task bar with black border as separator
+            ax.barh(0, width, left=left, height=0.5, color=color,
+                   edgecolor='black', linewidth=1.0)
+
+            # Add task ID label if segment is large enough
+            if width > 0.05:  # Show label for segments > 5%
+                task_label = f"T{task['id']}"
+                ax.text(left + width/2, 0, task_label,
+                       ha='center', va='center', fontsize=7, fontweight='bold', color='white')
+
+            left += width
+
+        # Title with overdue info
+        if overdue_count > 0:
+            title_text = f'Incomplete: {total_incomplete} tasks ({int(total_time)}min)\n[OVERDUE: {overdue_count} tasks]'
+        else:
+            title_text = f'Incomplete: {total_incomplete} tasks ({int(total_time)}min)'
+
+        ax.set_title(title_text, fontsize=10, fontweight='bold')
+        ax.set_xlim(0, 1)
+        ax.set_ylim(-0.5, 0.5)
+        ax.axis('off')

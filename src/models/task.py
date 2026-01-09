@@ -133,10 +133,10 @@ class Task:
             else:  # 10%
                 difficulty = 3
         
-        # 締切: 時間と重要度の両方を考慮
+        # 締切: 時間と重要度の両方を考慮（より余裕を持たせる）
         time_factor = base_duration / 60  # 時間の影響
         priority_factor = priority.value  # 重要度の影響
-        base_days = 1 + time_factor + priority_factor
+        base_days = 3 + time_factor * 2 + priority_factor * 2  # 締切を緩和（5～13日後）
         deadline = current_time + timedelta(days=base_days)
         
         return Task(
