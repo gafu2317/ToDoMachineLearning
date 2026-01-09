@@ -2,11 +2,8 @@ from typing import Dict, List, Any
 import numpy as np
 import pandas as pd
 from ..environment.simulation import TaskSchedulingSimulation
-from ..models.concentration import ConcentrationModel
+from ..utils.scheduler_factory import create_baseline_schedulers, create_rl_scheduler
 from ..schedulers.scheduler import Scheduler
-from ..schedulers.task_selectors import DeadlineTaskSelector, PriorityTaskSelector, RandomTaskSelector
-from ..schedulers.break_strategies import ConcentrationBreakStrategy
-from ..schedulers.rl_learning_scheduler import RLLearningScheduler
 
 
 class SchedulerEvaluator:
@@ -23,47 +20,22 @@ class SchedulerEvaluator:
         self.work_hours_per_day = work_hours_per_day
         self.num_tasks = num_tasks
     
-    def create_baseline_schedulers(self) -> Dict[str, Scheduler]:
-        """ベースラインスケジューラーを作成する"""
-        schedulers = {}
-        
-        # 各スケジューラーに対して集中力モデルと休憩戦略を設定
-        scheduler_configs = [
-            ("deadline_scheduler", DeadlineTaskSelector()),
-            ("priority_scheduler", PriorityTaskSelector()),
-            ("random_scheduler", RandomTaskSelector())
-        ]
-        
-        for name, task_selector in scheduler_configs:
-            concentration_model = ConcentrationModel()
-            break_strategy = ConcentrationBreakStrategy(concentration_model)
-            scheduler = Scheduler(task_selector, break_strategy)
-            schedulers[name] = scheduler
-        
-        # 強化学習スケジューラーを追加
-        rl_concentration_model = ConcentrationModel()
-        rl_scheduler = RLLearningScheduler(
-            concentration_model=rl_concentration_model,
-            learning_rate=0.1,
-            discount_factor=0.9,
-            epsilon=0.1
-        )
-        schedulers["rl_scheduler"] = rl_scheduler
-        
-        return schedulers
     
     def run_experiments(self, schedulers: Dict[str, Scheduler] = None) -> pd.DataFrame:
         """
         複数のスケジューラーで実験を実行し、結果を比較する
-        
+
         Args:
             schedulers: 評価するスケジューラーの辞書。Noneの場合はベースラインを使用
-            
+
         Returns:
             実験結果のDataFrame
         """
         if schedulers is None:
-            schedulers = self.create_baseline_schedulers()
+            # ベースラインスケジューラーを作成
+            schedulers = create_baseline_schedulers()
+            # 強化学習スケジューラーを追加
+            schedulers["rl_scheduler"] = create_rl_scheduler()
         
         results = []
         

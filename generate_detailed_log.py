@@ -25,9 +25,9 @@ def main():
     
     # スケジューラー設定
     schedulers = create_baseline_schedulers()
-    
-    # 強化学習スケジューラーを追加
-    schedulers["rl_scheduler"] = create_rl_scheduler(trained=False)
+
+    # 学習済み強化学習スケジューラーを追加
+    schedulers["rl_scheduler"] = create_rl_scheduler()
     
     # ログアナライザーを作成
     log_analyzer = SimulationLogAnalyzer()
@@ -74,7 +74,7 @@ def main():
         result = simulation.run_simulation_with_tasks(scheduler, common_tasks)
         
         # 詳細ログレポート生成
-        log_path = f"results/detailed_logs/{scheduler_name}_detailed_log_{timestamp}.md"
+        log_path = f"results/detailed_logs/{timestamp}_{scheduler_name}_detailed_log.md"
         detailed_report = log_analyzer.generate_daily_schedule_report(
             simulation_result=result,
             scheduler_name=scheduler_name,

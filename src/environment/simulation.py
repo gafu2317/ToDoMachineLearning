@@ -28,35 +28,70 @@ class TaskSchedulingSimulation:
     def generate_tasks(self) -> List[Task]:
         """バランスの取れたタスクセットを生成する"""
         tasks = []
-        
+
         # 基本的なタスクを生成
         for i in range(self.num_tasks):
             task = Task.generate_random_task(i, self.start_time)
             tasks.append(task)
-        
+
+        # 依存関係を追加（30%のタスクが依存関係を持つ）
+        tasks = self._add_dependencies(tasks)
+
         # 合計スコアを調整（指定がある場合）
         if self.target_total_score:
             tasks = self._adjust_total_score(tasks, self.target_total_score)
-        
+
         return tasks
     
+    def _add_dependencies(self, tasks: List[Task]) -> List[Task]:
+        """タスクに依存関係を追加する"""
+        import random
+
+        # 30%のタスクが依存関係を持つ
+        num_dependent_tasks = int(len(tasks) * 0.3)
+
+        # 依存関係を持つタスクをランダムに選択（後半のタスクを優先）
+        # IDが大きいタスクが小さいタスクに依存する（現実的）
+        for i in range(len(tasks) - 1, len(tasks) - num_dependent_tasks - 1, -1):
+            if i <= 0:
+                break
+
+            task = tasks[i]
+
+            # このタスクより前のタスクから1-2個を依存先として選ぶ
+            num_deps = random.choice([1, 2])
+            possible_deps = list(range(max(0, i - 20), i))  # 直近20個の中から
+
+            if possible_deps:
+                deps = random.sample(possible_deps, min(num_deps, len(possible_deps)))
+                task.dependencies = deps
+
+                # 依存タスクがある場合は締切を調整（依存タスクより後にする）
+                for dep_id in deps:
+                    dep_task = tasks[dep_id]
+                    if task.deadline <= dep_task.deadline:
+                        # 依存タスクの締切 + 1日
+                        task.deadline = dep_task.deadline + timedelta(days=1)
+
+        return tasks
+
     def _adjust_total_score(self, tasks: List[Task], target_score: int) -> List[Task]:
         """タスクの合計スコアを目標値に調整する"""
         current_score = sum(task.get_score() for task in tasks)
-        
+
         if current_score == target_score:
             return tasks
-        
+
         # 簡単な調整方法：最後のタスクの時間を変更
         if len(tasks) > 0:
             last_task = tasks[-1]
             score_diff = target_score - current_score
             duration_adjustment = score_diff // last_task.priority.value
-            
+
             # 最小15分、最大180分の制限内で調整
             new_duration = max(15, min(180, last_task.base_duration_minutes + duration_adjustment))
             last_task.base_duration_minutes = new_duration
-        
+
         return tasks
     
     def run_simulation(self, scheduler: Scheduler) -> Dict[str, Any]:
@@ -127,20 +162,23 @@ class TaskSchedulingSimulation:
                         break
                 else:
                     # タスクを実行
-                    work_duration = scheduler.work_on_task(selected_task)
+                    work_duration, succeeded = scheduler.work_on_task(selected_task)
                     total_work_time += work_duration
                     current_time += timedelta(minutes=work_duration)
                     current_day_work_time += work_duration
-                    
+
                     if selected_task.is_completed:
                         completed_tasks.append(selected_task)
-                    
+
                     simulation_log.append({
                         'time': current_time.isoformat(),
                         'action': 'work',
                         'task_id': selected_task.id,
                         'duration': work_duration,
                         'completed': selected_task.is_completed,
+                        'succeeded': succeeded,
+                        'failed_attempts': selected_task.failed_attempts,
+                        'difficulty': selected_task.difficulty,
                         'concentration': scheduler.concentration_model.current_level
                     })
                 
@@ -153,24 +191,28 @@ class TaskSchedulingSimulation:
         # 結果を計算
         return self._calculate_results(tasks_copy, completed_tasks, total_work_time, total_break_time, simulation_log)
     
-    def _calculate_results(self, 
-                          all_tasks: List[Task], 
+    def _calculate_results(self,
+                          all_tasks: List[Task],
                           completed_tasks: List[Task],
                           total_work_time: float,
                           total_break_time: float,
                           simulation_log: List[Dict]) -> Dict[str, Any]:
         """シミュレーション結果を計算する"""
-        
+
         # 完了タスクのスコア
         total_score = sum(task.get_score() for task in completed_tasks)
-        
+
         # 未完了タスクの分析
         incomplete_tasks = [task for task in all_tasks if not task.is_completed]
-        overdue_tasks = [task for task in incomplete_tasks 
+        overdue_tasks = [task for task in incomplete_tasks
                         if task.is_overdue(self.start_time + timedelta(days=self.simulation_days))]
-        
+
+        # 失敗回数の集計
+        total_failed_attempts = sum(task.failed_attempts for task in all_tasks)
+        tasks_with_failures = [task for task in all_tasks if task.failed_attempts > 0]
+
         # 締切遵守率
-        tasks_with_deadline = [task for task in completed_tasks 
+        tasks_with_deadline = [task for task in completed_tasks
                               if task.deadline <= self.start_time + timedelta(days=self.simulation_days)]
         deadline_compliance_rate = len(tasks_with_deadline) / len(all_tasks) if all_tasks else 0
         
@@ -184,10 +226,12 @@ class TaskSchedulingSimulation:
             'total_work_time': total_work_time,
             'total_break_time': total_break_time,
             'efficiency': total_work_time / (total_work_time + total_break_time) if (total_work_time + total_break_time) > 0 else 0,
+            'total_failed_attempts': total_failed_attempts,
+            'tasks_with_failures_count': len(tasks_with_failures),
             'tasks': {
                 'total': len(all_tasks),
-                'completed': [{'id': t.id, 'score': t.get_score(), 'priority': t.priority.name} for t in completed_tasks],
-                'incomplete': [{'id': t.id, 'score': t.get_score(), 'priority': t.priority.name} for t in incomplete_tasks]
+                'completed': [{'id': t.id, 'score': t.get_score(), 'priority': t.priority.name, 'difficulty': t.difficulty} for t in completed_tasks],
+                'incomplete': [{'id': t.id, 'score': t.get_score(), 'priority': t.priority.name, 'difficulty': t.difficulty} for t in incomplete_tasks]
             },
             'simulation_log': simulation_log
         }

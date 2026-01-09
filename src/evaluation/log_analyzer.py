@@ -39,6 +39,12 @@ class SimulationLogAnalyzer:
         report.append(f"- 完了率: {simulation_result['completion_rate']:.1%}")
         report.append(f"- 総作業時間: {simulation_result['total_work_time']:.0f}分")
         report.append(f"- 総休憩時間: {simulation_result['total_break_time']:.0f}分")
+
+        # 失敗情報を追加（存在する場合）
+        if 'total_failed_attempts' in simulation_result:
+            report.append(f"- 総失敗回数: {simulation_result['total_failed_attempts']}回")
+            report.append(f"- 失敗したタスク数: {simulation_result['tasks_with_failures_count']}個")
+
         report.append("")
         
         # ログをタイムスタンプでソート
@@ -64,17 +70,28 @@ class SimulationLogAnalyzer:
                     duration = entry['duration']
                     completed = entry['completed']
                     concentration = entry['concentration']
-                    
+                    succeeded = entry.get('succeeded', True)  # 古いログとの互換性
+                    difficulty = entry.get('difficulty', 1)
+                    failed_attempts = entry.get('failed_attempts', 0)
+
                     # 完了タスクから詳細情報を取得
                     task_info = self._get_task_info(task_id, completed_tasks, incomplete_tasks)
-                    
-                    status = "✅ 完了" if completed else "⏳ 作業中"
-                    
+
+                    # ステータス表示
+                    if completed:
+                        status = "✅ 完了"
+                    elif succeeded:
+                        status = "⏳ 作業中"
+                    else:
+                        status = "❌ 失敗"
+
                     report.append(f"**{time_str}** - {status}")
                     report.append(f"- タスク: {task_info['name']} (ID: {task_id})")
-                    report.append(f"- 重要度: {task_info['priority']} (スコア: {task_info['score']})")
+                    report.append(f"- 重要度: {task_info['priority']} / 難易度: {difficulty} (スコア: {task_info['score']})")
                     report.append(f"- 作業時間: {duration:.0f}分")
                     report.append(f"- 集中レベル: {concentration:.2f}")
+                    if failed_attempts > 0:
+                        report.append(f"- 失敗回数: {failed_attempts}回")
                     report.append("")
                     
                     day_total_work += duration

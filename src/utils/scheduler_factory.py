@@ -42,26 +42,37 @@ def create_baseline_schedulers() -> Dict[str, Scheduler]:
     return schedulers
 
 
-def create_rl_scheduler(trained: bool = False) -> RLLearningScheduler:
+def create_rl_scheduler(model_path: str = None) -> RLLearningScheduler:
     """
     強化学習スケジューラーを作成する
-    
+
     Args:
-        trained: 事前学習済みかどうか
-        
+        model_path: 学習済みモデルのパス。Noneの場合はデフォルトモデルを使用
+
     Returns:
         強化学習スケジューラーインスタンス
     """
+    import os
+
     concentration = ConcentrationModel(**CONCENTRATION_CONFIG)
     rl_scheduler = RLLearningScheduler(
         concentration_model=concentration,
         **RL_CONFIG
     )
-    
-    if trained:
-        # 事前学習の実装は今後の課題
-        pass
-    
+
+    # デフォルトパスを設定
+    if model_path is None:
+        model_path = "trained_models/rl_model_default.pkl"
+
+    # モデルが存在すれば読み込む
+    if os.path.exists(model_path):
+        rl_scheduler.load_model(model_path)
+        rl_scheduler.set_epsilon(0.05)  # テスト時は探索率を低く
+        print(f"✅ 学習済みモデルを読み込み: {model_path}")
+    else:
+        print(f"⚠️  学習済みモデルが見つからない: {model_path}")
+        print(f"   未学習の状態で実行される。事前に train_rl_model.py を実行してください。")
+
     return rl_scheduler
 
 

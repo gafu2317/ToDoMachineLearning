@@ -1,4 +1,5 @@
 import numpy as np
+import pickle
 from typing import List, Dict, Tuple, Optional
 from datetime import datetime, timedelta
 from .task_selectors import TaskSelector
@@ -46,10 +47,9 @@ class QLearningTaskSelector(TaskSelector):
         else:
             # Q値最大の行動を選択
             action = self._get_best_action(state, len(incomplete_tasks))
-            if action < len(incomplete_tasks):
-                selected_task = incomplete_tasks[action]
-            else:
-                selected_task = None  # 休憩選択
+            # actionがタスク数を超える場合は、範囲内に収める
+            action = min(action, len(incomplete_tasks) - 1)
+            selected_task = incomplete_tasks[action]
         
         # 履歴に記録
         self.state_history.append(state)
@@ -199,3 +199,24 @@ class QLearningTaskSelector(TaskSelector):
             'avg_reward': np.mean(self.reward_history) if self.reward_history else 0,
             'episodes_trained': len(self.reward_history)
         }
+
+    def save_q_table(self, filepath: str):
+        """Q-tableを保存"""
+        save_data = {
+            'q_table': self.q_table,
+            'learning_rate': self.learning_rate,
+            'discount_factor': self.discount_factor,
+            'epsilon': self.epsilon
+        }
+        with open(filepath, 'wb') as f:
+            pickle.dump(save_data, f)
+
+    def load_q_table(self, filepath: str):
+        """Q-tableを読み込み"""
+        with open(filepath, 'rb') as f:
+            save_data = pickle.load(f)
+
+        self.q_table = save_data['q_table']
+        self.learning_rate = save_data['learning_rate']
+        self.discount_factor = save_data['discount_factor']
+        self.epsilon = save_data['epsilon']

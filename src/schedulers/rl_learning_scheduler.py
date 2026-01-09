@@ -1,7 +1,7 @@
 from typing import List, Optional
 from datetime import datetime
 from .scheduler import Scheduler
-from .rl_scheduler import QLearningTaskSelector
+from .rl_policy_selector import PolicyBasedQLearningSelector
 from .break_strategies import ConcentrationBreakStrategy
 from ..models.task import Task
 from ..models.concentration import ConcentrationModel
@@ -16,8 +16,8 @@ class RLLearningScheduler(Scheduler):
                  discount_factor: float = 0.9,
                  epsilon: float = 0.1):
         
-        # Q-learningタスク選択戦略を作成
-        ql_task_selector = QLearningTaskSelector(
+        # ポリシーベースQ-learningタスク選択戦略を作成
+        ql_task_selector = PolicyBasedQLearningSelector(
             learning_rate=learning_rate,
             discount_factor=discount_factor,
             epsilon=epsilon
@@ -32,35 +32,49 @@ class RLLearningScheduler(Scheduler):
         # 強化学習用の追加情報
         self.last_task = None
         self.last_action_time = None
-        
-    def work_on_task(self, task: Task) -> float:
+
+    def select_next_task(self, tasks: List[Task], current_time: datetime) -> Optional[Task]:
+        """
+        次に実行するタスクを選択する（集中力レベルを渡すためにオーバーライド）
+        """
+        if self.break_strategy.should_take_break():
+            return None
+
+        # 集中力レベルを含めてタスク選択
+        return self.task_selector.select_task(
+            tasks,
+            current_time,
+            concentration_level=self.concentration_model.current_level
+        )
+
+    def work_on_task(self, task: Task) -> tuple[float, bool]:
         """
         タスクを実行し、Q値を更新する
         """
         start_time = datetime.now()
         start_concentration = self.concentration_model.current_level
-        
-        # 通常の作業処理
-        actual_duration = super().work_on_task(task)
-        
-        # 報酬計算
+
+        # 通常の作業処理（成功・失敗情報も取得）
+        actual_duration, succeeded = super().work_on_task(task)
+
+        # 報酬計算（成功・失敗を考慮）
         reward = self.task_selector.calculate_reward(
             task=task,
             completed=task.is_completed,
             current_time=start_time,
             concentration_level=start_concentration
         )
-        
+
         # Q値更新
         self.task_selector.update_q_value(
             reward=reward,
             done=task.is_completed
         )
-        
+
         self.last_task = task
         self.last_action_time = start_time
-        
-        return actual_duration
+
+        return actual_duration, succeeded
     
     def take_break(self) -> int:
         """
@@ -94,7 +108,15 @@ class RLLearningScheduler(Scheduler):
     def set_epsilon(self, epsilon: float):
         """探索率を設定（学習段階の調整用）"""
         self.task_selector.epsilon = epsilon
-    
+
+    def save_model(self, filepath: str):
+        """学習済みモデルを保存"""
+        self.task_selector.save_q_table(filepath)
+
+    def load_model(self, filepath: str):
+        """学習済みモデルを読み込み"""
+        self.task_selector.load_q_table(filepath)
+
     def train_episodes(self, 
                       simulation_environment,
                       num_episodes: int = 100,
