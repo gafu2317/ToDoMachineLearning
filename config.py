@@ -62,6 +62,9 @@ TASK_GENERATION_CONFIG = {
     # 依存関係設定
     'dependency_ratio': 0.3,  # 30%のタスクが依存関係を持つ
     'dependency_window_size': 20,  # 直近20個のタスクから依存先を選択
+
+    # 再試行設定
+    'max_attempts': 3,  # タスクの最大試行回数
 }
 
 # タスク難易度設定

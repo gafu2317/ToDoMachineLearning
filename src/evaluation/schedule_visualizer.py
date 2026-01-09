@@ -20,8 +20,8 @@ class ScheduleVisualizer:
     }
 
     BREAK_COLOR = '#CCCCCC'  # Gray (break)
-    FAIL_MARKER = '❌'
-    SUCCESS_MARKER = '✅'
+    FAIL_MARKER = 'X'
+    SUCCESS_MARKER = 'O'
 
     def __init__(self, start_hour: int = 9, end_hour: int = 17, simulation_days: int = 7):
         """
@@ -110,6 +110,7 @@ class ScheduleVisualizer:
                 task_id = entry['task_id']
                 completed = entry.get('completed', False)
                 succeeded = entry.get('succeeded', False)
+                failed_attempts = entry.get('failed_attempts', 0)
 
                 # Get task info
                 task_info = self._find_task_info(result, task_id)
@@ -117,12 +118,14 @@ class ScheduleVisualizer:
                     priority = task_info['priority']
                     color = self.PRIORITY_COLORS.get(priority, '#888888')
 
-                    # Marker
-                    marker = self.SUCCESS_MARKER if succeeded else self.FAIL_MARKER
-                    label = f"T{task_id}{marker}"
+                    # Label with attempt number if retry
+                    if failed_attempts > 0:
+                        label = f"T{task_id}(#{failed_attempts})"
+                    else:
+                        label = f"T{task_id}"
 
-                    # Draw bar
-                    self._draw_bar(ax, day, time_in_day_start, duration, color, label)
+                    # Draw bar with hatching for failures
+                    self._draw_bar(ax, day, time_in_day_start, duration, color, label, failed=not succeeded)
 
             elif action == 'break':
                 # Break bar
@@ -166,7 +169,7 @@ class ScheduleVisualizer:
                    bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
 
     def _draw_bar(self, ax, day: int, start_minutes: float, duration: float,
-                  color: str, label: str):
+                  color: str, label: str, failed: bool = False):
         """
         Draw bar on Gantt chart
 
@@ -177,14 +180,21 @@ class ScheduleVisualizer:
             duration: Duration (minutes)
             color: Bar color
             label: Label
+            failed: Whether the task failed (shows hatching)
         """
         # Bar width
         bar_width = 0.8
 
-        # Draw bar
-        rect = mpatches.Rectangle((day - bar_width/2, start_minutes),
-                                  bar_width, duration,
-                                  facecolor=color, edgecolor='black', linewidth=0.5)
+        # Draw bar with hatching for failed tasks
+        if failed:
+            rect = mpatches.Rectangle((day - bar_width/2, start_minutes),
+                                      bar_width, duration,
+                                      facecolor=color, edgecolor='black', linewidth=1.5,
+                                      hatch='///', alpha=0.7)
+        else:
+            rect = mpatches.Rectangle((day - bar_width/2, start_minutes),
+                                      bar_width, duration,
+                                      facecolor=color, edgecolor='black', linewidth=0.5)
         ax.add_patch(rect)
 
         # Draw label (only if bar is long enough)

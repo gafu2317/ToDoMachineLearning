@@ -51,6 +51,9 @@ class Scheduler:
             task.is_completed = True
         else:
             task.failed_attempts += 1
+            # 試行回数が上限に達したら完了扱い（諦める）
+            if task.failed_attempts >= task.max_attempts:
+                task.is_completed = True
 
         return actual_duration, succeeded
     

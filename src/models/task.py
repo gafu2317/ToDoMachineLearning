@@ -22,6 +22,7 @@ class Task:
     difficulty: int = 1  # 難易度 1(簡単) ~ 3(難しい)
     is_completed: bool = False
     failed_attempts: int = 0  # 失敗回数
+    max_attempts: int = 3  # 最大試行回数
     dependencies: List[int] = field(default_factory=list)  # 依存タスクのIDリスト
     
     def get_score(self) -> int:
@@ -144,5 +145,6 @@ class Task:
             base_duration_minutes=base_duration,
             priority=priority,
             deadline=deadline,
-            difficulty=difficulty
+            difficulty=difficulty,
+            max_attempts=config.get('max_attempts', 3)
         )

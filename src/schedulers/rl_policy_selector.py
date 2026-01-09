@@ -61,6 +61,21 @@ class PolicyBasedQLearningSelector(TaskSelector):
             # 実行可能なタスクがない場合はNone
             return None
 
+        # 締切チェック：現在時刻 + タスク所要時間 <= 締切のタスクのみ
+        from datetime import timedelta
+        feasible_tasks = []
+        for task in ready_tasks:
+            estimated_completion = current_time + timedelta(minutes=task.base_duration_minutes)
+            if estimated_completion <= task.deadline:
+                feasible_tasks.append(task)
+
+        # 締切に間に合うタスクがない場合でも、何かを返す
+        # （全タスクが締切オーバーでも作業は続けるため）
+        if not feasible_tasks:
+            feasible_tasks = ready_tasks
+
+        ready_tasks = feasible_tasks
+
         # 状態を取得（集中力レベルを含む）
         state = self._get_state(ready_tasks, current_time, concentration_level)
 

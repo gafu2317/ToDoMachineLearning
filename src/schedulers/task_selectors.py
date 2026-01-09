@@ -22,12 +22,13 @@ class TaskSelector(ABC):
         """
         pass
 
-    def _get_ready_tasks(self, tasks: List[Task]) -> Optional[List[Task]]:
+    def _get_ready_tasks(self, tasks: List[Task], current_time: datetime = None) -> Optional[List[Task]]:
         """
         未完了かつ依存関係を満たすタスクを取得する共通メソッド
 
         Args:
             tasks: 全タスクのリスト
+            current_time: 現在時刻（締切チェック用）
 
         Returns:
             実行可能なタスクのリスト。存在しない場合はNone
@@ -46,6 +47,22 @@ class TaskSelector(ABC):
         if not ready_tasks:
             return None
 
+        # 締切チェック：現在時刻 + タスク所要時間 <= 締切のタスクのみ
+        if current_time:
+            from datetime import timedelta
+            feasible_tasks = []
+            for task in ready_tasks:
+                estimated_completion = current_time + timedelta(minutes=task.base_duration_minutes)
+                if estimated_completion <= task.deadline:
+                    feasible_tasks.append(task)
+
+            # 締切に間に合うタスクがない場合でも、何かを返す
+            # （全タスクが締切オーバーでも作業は続けるため）
+            if not feasible_tasks:
+                return ready_tasks
+
+            return feasible_tasks
+
         return ready_tasks
 
 
@@ -53,7 +70,7 @@ class DeadlineTaskSelector(TaskSelector):
     """期限順タスク選択戦略"""
 
     def select_task(self, tasks: List[Task], current_time: datetime) -> Optional[Task]:
-        ready_tasks = self._get_ready_tasks(tasks)
+        ready_tasks = self._get_ready_tasks(tasks, current_time)
         if ready_tasks is None:
             return None
 
@@ -66,7 +83,7 @@ class PriorityTaskSelector(TaskSelector):
     """重要度順タスク選択戦略"""
 
     def select_task(self, tasks: List[Task], current_time: datetime) -> Optional[Task]:
-        ready_tasks = self._get_ready_tasks(tasks)
+        ready_tasks = self._get_ready_tasks(tasks, current_time)
         if ready_tasks is None:
             return None
 
@@ -80,7 +97,7 @@ class RandomTaskSelector(TaskSelector):
     """ランダムタスク選択戦略"""
 
     def select_task(self, tasks: List[Task], current_time: datetime) -> Optional[Task]:
-        ready_tasks = self._get_ready_tasks(tasks)
+        ready_tasks = self._get_ready_tasks(tasks, current_time)
         if ready_tasks is None:
             return None
 
