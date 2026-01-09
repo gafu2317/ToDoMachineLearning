@@ -256,24 +256,19 @@ class ScheduleVisualizer:
         # Get simulation end time
         sim_end_time = datetime(2024, 1, 1 + self.simulation_days, self.start_hour, 0)
 
-        # Separate overdue and not-overdue tasks
-        overdue_tasks = []
-        not_overdue_tasks = []
+        # Check each task's deadline to determine if overdue
+        def is_overdue(task):
+            deadline_str = task.get('deadline', '')
+            if deadline_str:
+                try:
+                    deadline = datetime.fromisoformat(deadline_str)
+                    return sim_end_time > deadline
+                except:
+                    pass
+            return False
 
-        for task in incomplete_tasks:
-            # Parse deadline from task dict (it might be a string in the result)
-            # We'll check if task has 'deadline' field, otherwise assume overdue if incomplete
-            task_id = task['id']
-            # For now, check against overdue list in result
-            if result.get('overdue_tasks_count', 0) > 0:
-                # Simple heuristic: if we have overdue tasks, mark them
-                overdue_tasks.append(task)
-            else:
-                not_overdue_tasks.append(task)
-
-        # Actually, let's count overdue properly by checking incomplete vs total
-        # Since we don't have deadline info in task dict, use result stats
-        overdue_count = result.get('overdue_tasks_count', 0)
+        # Count overdue tasks
+        overdue_count = sum(1 for task in incomplete_tasks if is_overdue(task))
         total_incomplete = len(incomplete_tasks)
 
         # Sort tasks by priority (HIGH -> MEDIUM -> LOW) and duration
@@ -304,9 +299,18 @@ class ScheduleVisualizer:
             color = self.PRIORITY_COLORS[priority]
             width = duration / total_time if total_time > 0 else 0
 
-            # Draw task bar with black border as separator
-            ax.barh(0, width, left=left, height=0.5, color=color,
-                   edgecolor='black', linewidth=1.0)
+            # Check if this task is overdue
+            task_overdue = is_overdue(task)
+
+            # Draw task bar with hatching for overdue tasks
+            if task_overdue:
+                # Overdue: add hatching pattern
+                ax.barh(0, width, left=left, height=0.5, color=color,
+                       edgecolor='red', linewidth=2.0, hatch='///', alpha=0.8)
+            else:
+                # Not overdue: normal bar
+                ax.barh(0, width, left=left, height=0.5, color=color,
+                       edgecolor='black', linewidth=1.0)
 
             # Add task ID label if segment is large enough
             if width > 0.05:  # Show label for segments > 5%

@@ -15,28 +15,32 @@
 
 ## プロジェクト構成
 ```
-├── src/                    # 核となるライブラリ
-│   ├── models/            # タスク・集中力モデル
-│   ├── schedulers/        # スケジューリング手法
-│   ├── environment/       # シミュレーション環境
-│   ├── evaluation/        # 評価・分析システム
-│   └── utils/            # 共通ユーティリティ
-├── trained_models/       # 学習済みモデル保存先
-├── results/              # 実験結果ファイル
-├── config.py            # 設定ファイル
-├── requirements.txt     # 依存関係
+├── src/                          # 核となるライブラリ
+│   ├── models/                  # タスク・集中力モデル
+│   ├── schedulers/              # スケジューリング手法
+│   ├── environment/             # シミュレーション環境
+│   ├── evaluation/              # 評価・分析・可視化システム
+│   └── utils/                  # 共通ユーティリティ
+├── trained_models/             # 学習済みモデル保存先
+├── results/                    # 実験結果・可視化画像
+├── config.py                   # 設定ファイル
+├── requirements.txt            # 依存関係
 ├── train_rl_model.py           # 強化学習モデル事前学習
-├── generate_detailed_log.py     # 詳細ログ生成
+├── visualize_schedules.py      # スケジュール可視化（推奨）
+├── generate_detailed_log.py    # 詳細ログ生成
 └── run_full_experiment.py      # 本格実験実行
 ```
 
 ## 実装済み機能
 - ✅ 複数スケジューリング手法（期限順・重要度順・ランダム・強化学習）
-- ✅ 集中力変動モデル（指数減衰・休憩回復）
+- ✅ 集中力変動モデル（指数減衰・休憩回復・日次リセット）
 - ✅ **タスク難易度システム**（難易度1-3、集中力要件、成功確率モデル）
 - ✅ **個人適応型強化学習**（集中力マッチングポリシー）
 - ✅ **タスク依存関係システム**（30%のタスクが1-2個の依存関係を持つ）
-- ✅ 失敗・再実行メカニズム
+- ✅ **失敗・再試行メカニズム**（最大3回まで再挑戦、失敗時はハッチングで視覚化）
+- ✅ **締切フィルタリング**（間に合わないタスクは選択されない）
+- ✅ **作業時間制約**（17:00を超えるタスクは開始しない）
+- ✅ **スケジュール可視化システム**（ガントチャート、未完了タスク内訳、締切超過表示）
 - ✅ 統計的有意差検定（t検定）
 - ✅ 詳細ログ出力・分析（失敗回数・難易度表示）
 - ✅ 公平な比較環境（全手法で同一タスクセット使用）
@@ -63,6 +67,9 @@ python train_rl_model.py
 
 ### 3. 実験実行
 ```bash
+# スケジュール可視化（推奨：視覚的に各手法を比較）
+python visualize_schedules.py
+
 # 詳細ログ付き比較実験（1回のシミュレーション）
 python generate_detailed_log.py
 
@@ -164,12 +171,54 @@ python run_full_experiment.py
 - 強化学習は制約下でも高い完了率とスコアを両立
 - 単純なルールベース手法との性能差がより顕著に
 
+## スケジュール可視化システム
+
+### 概要
+`visualize_schedules.py`を実行すると、4つのスケジューラの動作を視覚的に比較できる。
+
+### 可視化内容
+1. **ガントチャート**（上段）
+   - 7日間×8時間の作業スケジュール
+   - タスクは優先度で色分け（RED=高、YELLOW=中、GREEN=低）
+   - 失敗タスクは斜線ハッチングで表示
+   - 再試行回数をラベル表示（例：`T5(#2)`は2回目の挑戦）
+   - 休憩時間はグレー表示
+
+2. **未完了タスク内訳**（下段）
+   - タスクごとに個別のバー表示
+   - 優先度別に色分け＆ソート（HIGH → MEDIUM → LOW）
+   - タスクID、所要時間を表示
+   - 締切超過タスク数を明示（`[OVERDUE: X tasks]`）
+
+### 主な特徴
+- **現実的な制約を反映**
+  - 日次集中力リセット（毎朝100%に回復）
+  - 作業時間制約（17:00を超えるタスクは開始しない）
+  - 締切フィルタリング（間に合わないタスクは選択されない）
+  - 再試行メカニズム（最大3回まで）
+
+- **適切な負荷設定**
+  - タスク数：50個（7日間で完了できない程度）
+  - 締切：5〜13日後（余裕を持たせた設定）
+  - スケジューラ間で明確な性能差が観測できる
+
+### 出力例
+```
+deadline_scheduler: 90.0%完了、2958点
+rl_scheduler:       90.0%完了、3099点
+priority_scheduler: 78.0%完了、2631点
+random_scheduler:   74.0%完了、2555点
+```
+
 ## 技術的詳細
 
 詳細な結果は`results/`フォルダを参照。
 
 **主要ファイル：**
-- [src/models/task.py](src/models/task.py) - 難易度・成功確率モデル
+- [src/models/task.py](src/models/task.py) - 難易度・成功確率モデル、締切設定
 - [src/schedulers/rl_policy_selector.py](src/schedulers/rl_policy_selector.py) - 個人適応型ポリシー
-- [src/schedulers/scheduler.py](src/schedulers/scheduler.py) - 失敗判定ロジック
-- [src/environment/simulation.py](src/environment/simulation.py) - 失敗統計収集
+- [src/schedulers/scheduler.py](src/schedulers/scheduler.py) - 失敗判定・再試行ロジック
+- [src/schedulers/task_selectors.py](src/schedulers/task_selectors.py) - 締切フィルタリング
+- [src/environment/simulation.py](src/environment/simulation.py) - 失敗統計収集、作業時間制約
+- [src/evaluation/schedule_visualizer.py](src/evaluation/schedule_visualizer.py) - ガントチャート生成
+- [visualize_schedules.py](visualize_schedules.py) - 可視化実行スクリプト
