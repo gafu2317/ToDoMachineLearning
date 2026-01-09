@@ -116,8 +116,6 @@ class ScheduleVisualizer:
             if action == 'work':
                 task_id = entry['task_id']
                 completed = entry.get('completed', False)
-                succeeded = entry.get('succeeded', False)
-                failed_attempts = entry.get('failed_attempts', 0)
 
                 # Get task info
                 task_info = self._find_task_info(result, task_id)
@@ -125,14 +123,10 @@ class ScheduleVisualizer:
                     priority = task_info['priority']
                     color = self.PRIORITY_COLORS.get(priority, '#888888')
 
-                    # Label with attempt number if retry
-                    if failed_attempts > 0:
-                        label = f"T{task_id}(#{failed_attempts})"
-                    else:
-                        label = f"T{task_id}"
+                    label = f"T{task_id}"
 
-                    # Draw bar with hatching for failures
-                    self._draw_bar(ax, day, time_in_day_start, duration, color, label, failed=not succeeded)
+                    # Draw bar
+                    self._draw_bar(ax, day, time_in_day_start, duration, color, label)
 
             elif action == 'break':
                 # Break bar
@@ -176,7 +170,7 @@ class ScheduleVisualizer:
                    bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
 
     def _draw_bar(self, ax, day: int, start_minutes: float, duration: float,
-                  color: str, label: str, failed: bool = False):
+                  color: str, label: str):
         """
         Draw bar on Gantt chart
 
@@ -187,21 +181,14 @@ class ScheduleVisualizer:
             duration: Duration (minutes)
             color: Bar color
             label: Label
-            failed: Whether the task failed (shows hatching)
         """
         # Bar width
         bar_width = 0.8
 
-        # Draw bar with hatching for failed tasks
-        if failed:
-            rect = mpatches.Rectangle((day - bar_width/2, start_minutes),
-                                      bar_width, duration,
-                                      facecolor=color, edgecolor='black', linewidth=1.5,
-                                      hatch='///', alpha=0.7)
-        else:
-            rect = mpatches.Rectangle((day - bar_width/2, start_minutes),
-                                      bar_width, duration,
-                                      facecolor=color, edgecolor='black', linewidth=0.5)
+        # Draw bar
+        rect = mpatches.Rectangle((day - bar_width/2, start_minutes),
+                                  bar_width, duration,
+                                  facecolor=color, edgecolor='black', linewidth=0.5)
         ax.add_patch(rect)
 
         # Draw label (only if bar is long enough)

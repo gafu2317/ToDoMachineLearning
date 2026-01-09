@@ -21,8 +21,6 @@ class Task:
     deadline: datetime
     difficulty: int = 1  # 難易度 1(簡単) ~ 3(難しい)
     is_completed: bool = False
-    failed_attempts: int = 0  # 失敗回数
-    max_attempts: int = 3  # 最大試行回数
     dependencies: List[int] = field(default_factory=list)  # 依存タスクのIDリスト
     
     def get_score(self) -> int:
@@ -30,45 +28,6 @@ class Task:
     
     def is_overdue(self, current_time: datetime) -> bool:
         return current_time > self.deadline and not self.is_completed
-
-    def can_execute_successfully(self, concentration_level: float) -> bool:
-        """
-        現在の集中力でタスクを成功できるか判定
-
-        Args:
-            concentration_level: 現在の集中力レベル (0.0 ~ 1.0)
-
-        Returns:
-            成功確率が50%以上ならTrue
-        """
-        thresholds = TASK_DIFFICULTY_CONFIG['concentration_thresholds']
-        required = thresholds.get(self.difficulty, 0.5)
-        return concentration_level >= required
-
-    def get_success_probability(self, concentration_level: float) -> float:
-        """
-        現在の集中力での成功確率を取得
-
-        Args:
-            concentration_level: 現在の集中力レベル (0.0 ~ 1.0)
-
-        Returns:
-            成功確率 (0.0 ~ 1.0)
-        """
-        config = TASK_DIFFICULTY_CONFIG
-        thresholds = config['concentration_thresholds']
-        required = thresholds.get(self.difficulty, 0.5)
-
-        # 集中力が要件を満たしていれば成功確率は高い
-        if concentration_level >= required:
-            base_prob = config['base_success_probability']
-            multiplier = config['success_multiplier']
-            return min(1.0, base_prob + (concentration_level - required) * multiplier)
-        else:
-            # 要件を満たしていない場合は低い成功確率
-            min_prob = config['min_success_probability']
-            fail_mult = config['failure_multiplier']
-            return max(min_prob, concentration_level / required * fail_mult)
 
     def is_ready_to_start(self, completed_task_ids: Set[int]) -> bool:
         """
@@ -145,6 +104,5 @@ class Task:
             base_duration_minutes=base_duration,
             priority=priority,
             deadline=deadline,
-            difficulty=difficulty,
-            max_attempts=config.get('max_attempts', 3)
+            difficulty=difficulty
         )

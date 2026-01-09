@@ -47,22 +47,23 @@ class RLLearningScheduler(Scheduler):
             concentration_level=self.concentration_model.current_level
         )
 
-    def work_on_task(self, task: Task) -> tuple[float, bool]:
+    def work_on_task(self, task: Task) -> float:
         """
         タスクを実行し、Q値を更新する
         """
         start_time = datetime.now()
         start_concentration = self.concentration_model.current_level
 
-        # 通常の作業処理（成功・失敗情報も取得）
-        actual_duration, succeeded = super().work_on_task(task)
+        # 通常の作業処理
+        actual_duration = super().work_on_task(task)
 
-        # 報酬計算（成功・失敗を考慮）
+        # 報酬計算（時間効率を考慮）
         reward = self.task_selector.calculate_reward(
             task=task,
             completed=task.is_completed,
             current_time=start_time,
-            concentration_level=start_concentration
+            concentration_level=start_concentration,
+            actual_duration=actual_duration
         )
 
         # Q値更新
@@ -74,7 +75,7 @@ class RLLearningScheduler(Scheduler):
         self.last_task = task
         self.last_action_time = start_time
 
-        return actual_duration, succeeded
+        return actual_duration
     
     def take_break(self) -> int:
         """

@@ -154,9 +154,10 @@ class TaskSchedulingSimulation:
 
                 # タスクが選択された場合、残り時間内に収まるかチェック
                 if selected_task is not None:
-                    # 最悪ケース（効率1.2倍）でも収まるかチェック
-                    worst_case_duration = selected_task.base_duration_minutes * 1.2
-                    if worst_case_duration > remaining_time:
+                    # 現在の集中力レベルでの所要時間を見積もる
+                    estimated_efficiency = scheduler.concentration_model.get_efficiency_multiplier()
+                    estimated_duration = selected_task.base_duration_minutes * estimated_efficiency
+                    if estimated_duration > remaining_time:
                         # 残り時間に収まらないので、このタスクはスキップ
                         selected_task = None
 
@@ -178,7 +179,7 @@ class TaskSchedulingSimulation:
                         break
                 else:
                     # タスクを実行
-                    work_duration, succeeded = scheduler.work_on_task(selected_task)
+                    work_duration = scheduler.work_on_task(selected_task)
                     total_work_time += work_duration
                     current_time += timedelta(minutes=work_duration)
                     current_day_work_time += work_duration
@@ -192,8 +193,6 @@ class TaskSchedulingSimulation:
                         'task_id': selected_task.id,
                         'duration': work_duration,
                         'completed': selected_task.is_completed,
-                        'succeeded': succeeded,
-                        'failed_attempts': selected_task.failed_attempts,
                         'difficulty': selected_task.difficulty,
                         'concentration': scheduler.concentration_model.current_level
                     })
@@ -223,10 +222,6 @@ class TaskSchedulingSimulation:
         overdue_tasks = [task for task in incomplete_tasks
                         if task.is_overdue(self.start_time + timedelta(days=self.simulation_days))]
 
-        # 失敗回数の集計
-        total_failed_attempts = sum(task.failed_attempts for task in all_tasks)
-        tasks_with_failures = [task for task in all_tasks if task.failed_attempts > 0]
-
         # 締切遵守率
         tasks_with_deadline = [task for task in completed_tasks
                               if task.deadline <= self.start_time + timedelta(days=self.simulation_days)]
@@ -242,8 +237,6 @@ class TaskSchedulingSimulation:
             'total_work_time': total_work_time,
             'total_break_time': total_break_time,
             'efficiency': total_work_time / (total_work_time + total_break_time) if (total_work_time + total_break_time) > 0 else 0,
-            'total_failed_attempts': total_failed_attempts,
-            'tasks_with_failures_count': len(tasks_with_failures),
             'tasks': {
                 'total': len(all_tasks),
                 'completed': [{'id': t.id, 'score': t.get_score(), 'priority': t.priority.name, 'difficulty': t.difficulty} for t in completed_tasks],

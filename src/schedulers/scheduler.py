@@ -25,37 +25,24 @@ class Scheduler:
             
         return self.task_selector.select_task(tasks, current_time)
     
-    def work_on_task(self, task: Task) -> tuple[float, bool]:
+    def work_on_task(self, task: Task) -> float:
         """
-        タスクを実行し、集中力に応じた実際の所要時間と成功・失敗を返す
+        タスクを実行し、集中力に応じた実際の所要時間を返す
 
         Args:
             task: 実行するタスク
 
         Returns:
-            (実際の所要時間（分）, 成功したかどうか)
+            実際の所要時間（分）
         """
-        current_concentration = self.concentration_model.current_level
-
-        # 成功確率を計算
-        success_probability = task.get_success_probability(current_concentration)
-
-        # 成功・失敗を判定
-        succeeded = random.random() < success_probability
-
-        # 作業時間は失敗しても消費する
+        # 集中力に応じた作業効率を取得
         efficiency = self.concentration_model.work(task.base_duration_minutes)
         actual_duration = task.base_duration_minutes * efficiency
 
-        if succeeded:
-            task.is_completed = True
-        else:
-            task.failed_attempts += 1
-            # 試行回数が上限に達したら完了扱い（諦める）
-            if task.failed_attempts >= task.max_attempts:
-                task.is_completed = True
+        # タスクは常に完了する
+        task.is_completed = True
 
-        return actual_duration, succeeded
+        return actual_duration
     
     def should_take_break(self) -> bool:
         """休憩を取るべきかどうかを判定する"""

@@ -171,27 +171,33 @@ class PolicyBasedQLearningSelector(TaskSelector):
             return max(candidate_tasks, key=urgency_score)
 
         elif policy == "concentration_matched":
-            # 集中力に合った難易度のタスクを選ぶ（成功確率が高いものを優先）
-            # 成功確率が高い順にソートして、その中でスコアが高いものを選ぶ
+            # 集中力に合った難易度のタスクを選ぶ
+            # 集中力が高い時は難しいタスク、低い時は簡単なタスクを選ぶ
             def concentration_match_score(t):
-                success_prob = t.get_success_probability(concentration_level)
-                # 成功確率とスコアの両方を考慮
-                return success_prob * t.get_score()
+                # 集中力閾値との距離を計算
+                thresholds = {1: 0.3, 2: 0.6, 3: 0.8}
+                required = thresholds.get(t.difficulty, 0.5)
+
+                # 集中力が要件を満たしている場合、スコアが高いタスクを優先
+                if concentration_level >= required:
+                    return t.get_score() * (1.0 + (concentration_level - required))
+                else:
+                    # 集中力不足の場合はペナルティ
+                    return t.get_score() * (concentration_level / required)
 
             return max(candidate_tasks, key=concentration_match_score)
 
         elif policy == "safe_high_priority":
-            # 成功確率が一定以上のタスクの中で、重要度が高いものを選ぶ
-            safe_probability = config['safe_success_probability']
+            # 集中力に対して適切な難易度のタスクの中で、重要度が高いものを選ぶ
+            thresholds = {1: 0.3, 2: 0.6, 3: 0.8}
             safe_tasks = [t for t in candidate_tasks
-                         if t.get_success_probability(concentration_level) >= safe_probability]
+                         if concentration_level >= thresholds.get(t.difficulty, 0.5)]
 
             if safe_tasks:
                 return max(safe_tasks, key=lambda t: (t.priority.value, t.get_score()))
             else:
-                # 安全なタスクがない場合は最も成功確率が高いタスクを選ぶ
-                return max(candidate_tasks,
-                          key=lambda t: t.get_success_probability(concentration_level))
+                # 適切なタスクがない場合は最も簡単なタスクを選ぶ
+                return min(candidate_tasks, key=lambda t: t.difficulty)
 
         # デフォルト: 最初のタスク
         return candidate_tasks[0] if candidate_tasks else tasks[0]
@@ -243,34 +249,35 @@ class PolicyBasedQLearningSelector(TaskSelector):
                         task: Task,
                         completed: bool,
                         current_time: datetime,
-                        concentration_level: float) -> float:
-        """報酬を計算（失敗ペナルティ付き）"""
+                        concentration_level: float,
+                        actual_duration: float = None) -> float:
+        """報酬を計算（時間効率ベース）"""
         config = RL_REWARD_CONFIG
 
-        if completed:
-            # 基本完了報酬（スコアベース）
-            reward = task.get_score()
+        # 基本完了報酬（スコアベース）
+        reward = task.get_score()
 
-            # 高集中完了ボーナス
-            if concentration_level > config['high_concentration_threshold']:
-                reward += config['high_concentration_bonus']
+        # 高集中完了ボーナス（効率的に作業できた）
+        if concentration_level > config['high_concentration_threshold']:
+            reward += config['high_concentration_bonus']
 
-            # 難易度ボーナス（難しいタスクを成功させた場合）
-            if task.difficulty == 3 and concentration_level >= config['difficulty_bonus_threshold']:
-                reward += config['difficulty_bonus']
+        # 難易度ボーナス（難しいタスクを高集中で完了した場合）
+        if task.difficulty == 3 and concentration_level >= config['difficulty_bonus_threshold']:
+            reward += config['difficulty_bonus']
 
-            return reward
-        else:
-            # 失敗ペナルティ
-            # - 時間を無駄にした（作業時間分のコスト）
-            # - 難しいタスクを集中力不足で実行したペナルティ
-            penalty = -task.base_duration_minutes * config['failure_time_penalty_multiplier']
+        # 効率ペナルティ（集中力不足で時間がかかった場合）
+        if actual_duration and actual_duration > task.base_duration_minutes:
+            # 余分にかかった時間分をペナルティ
+            extra_time = actual_duration - task.base_duration_minutes
+            reward -= extra_time * 0.5
 
-            # 集中力が足りないのに難しいタスクを選んだ場合は大きなペナルティ
-            if task.difficulty >= 2 and concentration_level < config['reckless_concentration_threshold']:
-                penalty -= config['reckless_attempt_penalty']
+        # 集中力が足りないのに難しいタスクを選んだ場合はペナルティ
+        thresholds = {1: 0.3, 2: 0.6, 3: 0.8}
+        required = thresholds.get(task.difficulty, 0.5)
+        if concentration_level < required:
+            reward -= config['reckless_attempt_penalty']
 
-            return penalty
+        return reward
 
     def reset_episode(self):
         """エピソード終了時のリセット"""
