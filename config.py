@@ -116,3 +116,17 @@ RL_REWARD_CONFIG = {
 CONCENTRATION_LIMITS = {
     'min_level': 0.2,  # 最低集中力レベル
 }
+
+# ジャンル設定
+GENRE_CONFIG = {
+    'genres': ['1', '2', '3', '4'],  # 意味を持たない数字タグ
+    'genre_distribution': {
+        '1': 0.25,
+        '2': 0.25,
+        '3': 0.25,
+        '4': 0.25
+    }
+}
+
+# パーソナルデータファイルのパス
+PERSONAL_DATA_FILE = 'personal_data.json'

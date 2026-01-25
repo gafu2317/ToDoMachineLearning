@@ -1,0 +1,17 @@
+{
+  "version": "1.0",
+  "updatedAt": "2026-01-25T08:31:42.430Z",
+  "skills": {},
+  "commands": {},
+  "agents": {
+    "Explore": {
+      "count": 1,
+      "lastUsed": "2026-01-25T08:28:53.014Z"
+    },
+    "Plan": {
+      "count": 1,
+      "lastUsed": "2026-01-25T08:31:42.429Z"
+    }
+  },
+  "hooks": {}
+}

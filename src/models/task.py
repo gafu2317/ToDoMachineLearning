@@ -1,7 +1,6 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import List, Set
 import random
 from config import TASK_DIFFICULTY_CONFIG, TASK_GENERATION_CONFIG
 
@@ -21,25 +20,13 @@ class Task:
     deadline: datetime
     difficulty: int = 1  # 難易度 1(簡単) ~ 3(難しい)
     is_completed: bool = False
-    dependencies: List[int] = field(default_factory=list)  # 依存タスクのIDリスト
-    
+    genre: str = '1'  # ジャンル（数字タグ）
+
     def get_score(self) -> int:
         return self.base_duration_minutes * self.priority.value
-    
+
     def is_overdue(self, current_time: datetime) -> bool:
         return current_time > self.deadline and not self.is_completed
-
-    def is_ready_to_start(self, completed_task_ids: Set[int]) -> bool:
-        """
-        依存タスクが全て完了しているか確認
-
-        Args:
-            completed_task_ids: 完了済みタスクのIDセット
-
-        Returns:
-            実行可能ならTrue
-        """
-        return all(dep_id in completed_task_ids for dep_id in self.dependencies)
     
     @staticmethod
     def generate_random_task(task_id: int, current_time: datetime) -> 'Task':
@@ -97,12 +84,29 @@ class Task:
         priority_factor = priority.value  # 重要度の影響
         base_days = 3 + time_factor * 2 + priority_factor * 2  # 締切を緩和（5～13日後）
         deadline = current_time + timedelta(days=base_days)
-        
+
+        # ジャンルをランダムに割り当て
+        from config import GENRE_CONFIG
+        genre_config = GENRE_CONFIG
+        genres = genre_config['genres']
+        distribution = genre_config['genre_distribution']
+
+        # 確率分布に従ってジャンルを選択
+        rand = random.random()
+        cumulative = 0
+        selected_genre = genres[0]
+        for genre in genres:
+            cumulative += distribution[genre]
+            if rand < cumulative:
+                selected_genre = genre
+                break
+
         return Task(
             id=task_id,
             name=name,
             base_duration_minutes=base_duration,
             priority=priority,
             deadline=deadline,
-            difficulty=difficulty
+            difficulty=difficulty,
+            genre=selected_genre
         )

@@ -35,6 +35,9 @@ class Scheduler:
         Returns:
             実際の所要時間（分）
         """
+        # ジャンル切り替えによる集中力への影響を適用
+        self.concentration_model.apply_genre_switch_effect(task.genre)
+
         # 集中力に応じた作業効率を取得
         efficiency = self.concentration_model.work(task.base_duration_minutes)
         actual_duration = task.base_duration_minutes * efficiency

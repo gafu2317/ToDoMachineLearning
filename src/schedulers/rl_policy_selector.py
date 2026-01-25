@@ -53,13 +53,7 @@ class PolicyBasedQLearningSelector(TaskSelector):
         if not incomplete_tasks:
             return None
 
-        # 依存関係をチェックして実行可能なタスクだけを抽出
-        completed_task_ids = {task.id for task in tasks if task.is_completed}
-        ready_tasks = [task for task in incomplete_tasks if task.is_ready_to_start(completed_task_ids)]
-
-        if not ready_tasks:
-            # 実行可能なタスクがない場合はNone
-            return None
+        ready_tasks = incomplete_tasks
 
         # 締切チェック：現在時刻 + タスク所要時間 <= 締切のタスクのみ
         from datetime import timedelta

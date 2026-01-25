@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional, Set
+from typing import List, Optional
 from datetime import datetime
 import random
 from ..models.task import Task
@@ -40,12 +40,7 @@ class TaskSelector(ABC):
         if not incomplete_tasks:
             return None
 
-        # 依存関係をチェックして実行可能なタスクだけを抽出
-        completed_task_ids: Set[int] = {task.id for task in tasks if task.is_completed}
-        ready_tasks = [task for task in incomplete_tasks if task.is_ready_to_start(completed_task_ids)]
-
-        if not ready_tasks:
-            return None
+        ready_tasks = incomplete_tasks
 
         # 締切チェック：現在時刻 + タスク所要時間 <= 締切のタスクのみ
         if current_time:

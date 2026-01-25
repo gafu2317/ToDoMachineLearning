@@ -1,0 +1,11 @@
+{
+  "genre_preference_type": "same",
+  "same_genre_preference": {
+    "same_genre_bonus": 0.05,
+    "switch_genre_penalty": 0.0
+  },
+  "switch_genre_preference": {
+    "same_genre_penalty": 0.0,
+    "switch_genre_bonus": 0.05
+  }
+}

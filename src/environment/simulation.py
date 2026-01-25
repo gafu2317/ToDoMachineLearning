@@ -36,45 +36,9 @@ class TaskSchedulingSimulation:
             task = Task.generate_random_task(i, self.start_time)
             tasks.append(task)
 
-        # 依存関係を追加（30%のタスクが依存関係を持つ）
-        tasks = self._add_dependencies(tasks)
-
         # 合計スコアを調整（指定がある場合）
         if self.target_total_score:
             tasks = self._adjust_total_score(tasks, self.target_total_score)
-
-        return tasks
-    
-    def _add_dependencies(self, tasks: List[Task]) -> List[Task]:
-        """タスクに依存関係を追加する"""
-        config = TASK_GENERATION_CONFIG
-
-        # 指定割合のタスクが依存関係を持つ
-        num_dependent_tasks = int(len(tasks) * config['dependency_ratio'])
-
-        # 依存関係を持つタスクをランダムに選択（後半のタスクを優先）
-        # IDが大きいタスクが小さいタスクに依存する（現実的）
-        for i in range(len(tasks) - 1, len(tasks) - num_dependent_tasks - 1, -1):
-            if i <= 0:
-                break
-
-            task = tasks[i]
-
-            # このタスクより前のタスクから1-2個を依存先として選ぶ
-            num_deps = random.choice([1, 2])
-            window_size = config['dependency_window_size']
-            possible_deps = list(range(max(0, i - window_size), i))
-
-            if possible_deps:
-                deps = random.sample(possible_deps, min(num_deps, len(possible_deps)))
-                task.dependencies = deps
-
-                # 依存タスクがある場合は締切を調整（依存タスクより後にする）
-                for dep_id in deps:
-                    dep_task = tasks[dep_id]
-                    if task.deadline <= dep_task.deadline:
-                        # 依存タスクの締切 + 1日
-                        task.deadline = dep_task.deadline + timedelta(days=1)
 
         return tasks
 
