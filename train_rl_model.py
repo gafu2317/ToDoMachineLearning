@@ -14,6 +14,7 @@ from src.environment.simulation import TaskSchedulingSimulation
 from src.schedulers.rl_learning_scheduler import RLLearningScheduler
 from src.models.concentration import ConcentrationModel
 from src.utils.task_loader import TaskDataLoader
+from src.visualization.result_plotter import plot_learning_curve
 from config import DEFAULT_SIMULATION_CONFIG, RL_CONFIG, CONCENTRATION_CONFIG
 
 
@@ -112,12 +113,17 @@ def main():
 
     print(f"学習統計を保存: {stats_path}")
 
+    # 学習曲線を視覚化
+    learning_curve_path = f"trained_models/learning_curve_{timestamp}.png"
+    plot_learning_curve(episode_rewards, save_path=learning_curve_path, window_size=20)
+
     # デフォルトモデルとしてコピー
     default_model_path = "trained_models/rl_model_default.pkl"
     import shutil
     shutil.copy(model_path, default_model_path)
     print(f"\nデフォルトモデルとして保存: {default_model_path}")
     print(f"（今後の実験ではこのモデルが使用される）")
+    print(f"学習曲線: {learning_curve_path}")
 
     print("\n" + "=" * 60)
     print("学習完了！")

@@ -12,6 +12,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from src.evaluation.evaluator import SchedulerEvaluator
 from src.utils.task_loader import TaskDataLoader
+from src.visualization.result_plotter import ResultPlotter
 from config import DEFAULT_SIMULATION_CONFIG, EXPERIMENT_CONFIG
 
 
@@ -92,16 +93,42 @@ def main():
     # 統計的有意差検定
     print(f"\n=== 統計的有意差検定 ===")
     significance = evaluator.statistical_significance_test(results_df)
-    
+
     rl_comparisons = {k: v for k, v in significance.items() if 'rl_scheduler' in k}
     for comparison, test_result in rl_comparisons.items():
         significance_mark = "**有意差あり**" if test_result['significant'] else "有意差なし"
         print(f"{comparison}: p={test_result['p_value']:.4f} ({significance_mark})")
-    
+
+    # 視覚化
+    print(f"\n=== グラフ生成中 ===")
+    plotter = ResultPlotter(results_df, output_dir=EXPERIMENT_CONFIG['output_dir'])
+
+    # 個別グラフ生成
+    score_graph_path = f"{EXPERIMENT_CONFIG['output_dir']}/score_comparison_{timestamp}.png"
+    plotter.plot_score_comparison(save_path=score_graph_path)
+
+    metrics_graph_path = f"{EXPERIMENT_CONFIG['output_dir']}/metrics_comparison_{timestamp}.png"
+    plotter.plot_metrics_comparison(save_path=metrics_graph_path)
+
+    distribution_graph_path = f"{EXPERIMENT_CONFIG['output_dir']}/score_distribution_{timestamp}.png"
+    plotter.plot_score_distribution(save_path=distribution_graph_path)
+
+    significance_graph_path = f"{EXPERIMENT_CONFIG['output_dir']}/statistical_significance_{timestamp}.png"
+    plotter.plot_statistical_significance(significance, save_path=significance_graph_path)
+
+    # 総合レポート（PDF）
+    plotter.create_comprehensive_report(significance, timestamp)
+
     print(f"\n✅ 実験完了！結果は以下に保存されました:")
     print(f"  - 詳細データ: {csv_path}")
     print(f"  - レポート: {report_path}")
     print(f"  - 強化学習分析: {rl_analysis_path}")
+    print(f"\n📊 グラフ:")
+    print(f"  - スコア比較: {score_graph_path}")
+    print(f"  - 各指標比較: {metrics_graph_path}")
+    print(f"  - スコア分布: {distribution_graph_path}")
+    print(f"  - 統計的有意差: {significance_graph_path}")
+    print(f"  - 総合レポート（PDF）: {EXPERIMENT_CONFIG['output_dir']}/comprehensive_report_{timestamp}.pdf")
 
 
 if __name__ == "__main__":

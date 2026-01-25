@@ -71,6 +71,7 @@ def dict_to_task(task_dict: dict) -> Task:
     """辞書からTaskオブジェクトを復元"""
     task = Task(
         id=task_dict['id'],
+        name=task_dict.get('name', f"Task_{task_dict['id']}"),
         base_duration_minutes=task_dict['base_duration_minutes'],
         priority=Priority[task_dict['priority']],
         deadline=datetime.fromisoformat(task_dict['deadline']),

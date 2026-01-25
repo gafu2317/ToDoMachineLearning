@@ -65,6 +65,7 @@ def task_to_dict(task):
     """TaskオブジェクトをJSON化可能な辞書に変換"""
     return {
         'id': task.id,
+        'name': task.name,
         'base_duration_minutes': task.base_duration_minutes,
         'priority': task.priority.name,
         'deadline': task.deadline.isoformat(),
