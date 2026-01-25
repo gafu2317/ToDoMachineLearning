@@ -29,6 +29,22 @@ CONCENTRATION_CONFIG = {
     'initial_level': 1.0
 }
 
+# 集中力の持続力設定（減衰係数）
+CONCENTRATION_SUSTAINABILITY_CONFIG = {
+    'short': {
+        'decay_factor': 1.3,
+        'description': '集中力が早く低下（疲れやすい）'
+    },
+    'medium': {
+        'decay_factor': 1.0,
+        'description': '標準的な低下速度'
+    },
+    'long': {
+        'decay_factor': 0.8,
+        'description': '集中力がゆっくり低下（疲れにくい）'
+    }
+}
+
 # 休憩戦略設定
 BREAK_STRATEGY_CONFIG = {
     'threshold': 0.4

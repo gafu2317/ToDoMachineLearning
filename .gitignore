@@ -48,6 +48,9 @@ trained_models/*.pkl
 # 最終モデルだけ管理する場合
 # !trained_models/final_model.pkl
 
+# データセット（各自で生成）
+dataset/
+
 # Jupyter Notebook
 .ipynb_checkpoints/
 *.ipynb

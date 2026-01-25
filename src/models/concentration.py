@@ -32,6 +32,11 @@ class ConcentrationModel:
         else:
             self.genre_params = personal_config['switch_genre_preference']
 
+        # 集中力の持続力設定を読み込み
+        from config import CONCENTRATION_SUSTAINABILITY_CONFIG
+        sustainability_type = personal_config.get('concentration_sustainability', 'medium')
+        self.decay_factor = CONCENTRATION_SUSTAINABILITY_CONFIG[sustainability_type]['decay_factor']
+
         # 前回のジャンルを記憶
         self.last_genre = None
         
@@ -60,8 +65,8 @@ class ConcentrationModel:
         # 作業による疲労で集中力低下
         self.continuous_work_time += duration_minutes
 
-        # 集中力の減少（指数的に減衰）
-        fatigue_factor = np.exp(-self.continuous_work_time / self.max_work_time)
+        # 集中力の減少（指数的に減衰、減衰係数を考慮）
+        fatigue_factor = np.exp(-self.decay_factor * self.continuous_work_time / self.max_work_time)
         self.current_level = self.initial_level * fatigue_factor
 
         # 最低値を制限

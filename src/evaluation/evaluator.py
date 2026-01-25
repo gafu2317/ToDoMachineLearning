@@ -9,16 +9,18 @@ from ..schedulers.scheduler import Scheduler
 class SchedulerEvaluator:
     """スケジューラーの性能評価を行うクラス"""
     
-    def __init__(self, 
+    def __init__(self,
                  num_experiments: int = 100,
                  simulation_days: int = 7,
                  work_hours_per_day: int = 8,
-                 num_tasks: int = None):
-        
+                 num_tasks: int = None,
+                 task_loader = None):
+
         self.num_experiments = num_experiments
         self.simulation_days = simulation_days
         self.work_hours_per_day = work_hours_per_day
         self.num_tasks = num_tasks
+        self.task_loader = task_loader
     
     
     def run_experiments(self, schedulers: Dict[str, Scheduler] = None) -> pd.DataFrame:
@@ -49,7 +51,7 @@ class SchedulerEvaluator:
     def _run_single_scheduler_experiments(self, scheduler_name: str, scheduler: Scheduler) -> List[Dict]:
         """単一スケジューラーで複数回実験を実行"""
         results = []
-        
+
         for experiment_id in range(self.num_experiments):
             # シミュレーション環境を作成
             simulation = TaskSchedulingSimulation(
@@ -57,16 +59,23 @@ class SchedulerEvaluator:
                 work_hours_per_day=self.work_hours_per_day,
                 num_tasks=self.num_tasks
             )
-            
-            # シミュレーション実行
-            result = simulation.run_simulation(scheduler)
-            
+
+            # タスクを取得
+            if self.task_loader:
+                # 事前生成されたデータを使用
+                task_index = experiment_id % self.task_loader.get_num_datasets()
+                tasks = self.task_loader.load_tasks(task_index)
+                result = simulation.run_simulation_with_tasks(scheduler, tasks)
+            else:
+                # ランダム生成（後方互換性のため残す）
+                result = simulation.run_simulation(scheduler)
+
             # 結果にメタデータを追加
             result['scheduler_name'] = scheduler_name
             result['experiment_id'] = experiment_id
-            
+
             results.append(result)
-        
+
         return results
     
     def analyze_results(self, results_df: pd.DataFrame) -> Dict[str, Any]:

@@ -11,19 +11,24 @@ from datetime import datetime
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from src.evaluation.evaluator import SchedulerEvaluator
+from src.utils.task_loader import TaskDataLoader
 from config import DEFAULT_SIMULATION_CONFIG, EXPERIMENT_CONFIG
 
 
 def main():
     """強化学習を含む本格実験を実行してレポートを生成"""
     print("強化学習を含む本格実験を開始...")
-    
+
+    # タスクローダーを作成（テスト用）
+    test_loader = TaskDataLoader(dataset_type='test')
+
     # 実験設定
     evaluator = SchedulerEvaluator(
         num_experiments=EXPERIMENT_CONFIG['num_experiments'],
+        task_loader=test_loader,
         **DEFAULT_SIMULATION_CONFIG
     )
-    
+
     print("実験実行中... (強化学習含むため時間がかかります)")
     results_df = evaluator.run_experiments()
     
