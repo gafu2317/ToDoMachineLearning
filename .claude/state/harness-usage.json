@@ -1,16 +1,16 @@
 {
   "version": "1.0",
-  "updatedAt": "2026-01-25T09:10:32.993Z",
+  "updatedAt": "2026-01-27T10:40:25.290Z",
   "skills": {},
   "commands": {},
   "agents": {
     "Explore": {
-      "count": 2,
-      "lastUsed": "2026-01-25T09:02:47.718Z"
+      "count": 6,
+      "lastUsed": "2026-01-27T10:37:40.309Z"
     },
     "Plan": {
-      "count": 2,
-      "lastUsed": "2026-01-25T09:10:32.992Z"
+      "count": 4,
+      "lastUsed": "2026-01-27T10:40:25.289Z"
     }
   },
   "hooks": {}

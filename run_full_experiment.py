@@ -13,6 +13,9 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from src.evaluation.evaluator import SchedulerEvaluator
 from src.utils.task_loader import TaskDataLoader
 from src.visualization.result_plotter import ResultPlotter
+from src.evaluation.schedule_visualizer import ScheduleVisualizer
+from src.environment.simulation import TaskSchedulingSimulation
+from src.utils.scheduler_factory import create_baseline_schedulers, create_rl_scheduler
 from config import DEFAULT_SIMULATION_CONFIG, EXPERIMENT_CONFIG
 
 
@@ -119,6 +122,38 @@ def main():
     # 総合レポート（PDF）
     plotter.create_comprehensive_report(significance, timestamp)
 
+    # ガントチャート生成（代表的な実験回を選択）
+    print(f"\n=== ガントチャート生成中 ===")
+
+    # RL schedulerのスコアが中央値に近い実験回を選択
+    rl_data = results_df[results_df['scheduler_name'] == 'rl_scheduler']
+    median_score = rl_data['total_score'].median()
+    representative_idx = (rl_data['total_score'] - median_score).abs().idxmin()
+    representative_exp_id = results_df.loc[representative_idx, 'experiment_id']
+
+    print(f"代表的な実験回を選択: 実験{representative_exp_id} (中央値スコア: {median_score:.2f})")
+
+    # タスクセットを取得（実験IDに対応するタスクセット）
+    task_index = int(representative_exp_id) % test_loader.get_num_datasets()
+    tasks = test_loader.load_tasks(task_index)
+
+    # 全スケジューラでシミュレーション実行（simulation_log付き）
+    schedulers = create_baseline_schedulers()
+    schedulers["rl_scheduler"] = create_rl_scheduler()
+
+    simulation = TaskSchedulingSimulation(**DEFAULT_SIMULATION_CONFIG)
+    schedule_results = {}
+
+    for scheduler_name, scheduler in schedulers.items():
+        scheduler.reset()
+        result = simulation.run_simulation_with_tasks(scheduler, tasks)
+        schedule_results[scheduler_name] = result
+
+    # ガントチャート生成
+    visualizer = ScheduleVisualizer()
+    gantt_path = f"{EXPERIMENT_CONFIG['output_dir']}/schedule_comparison_{timestamp}.png"
+    visualizer.visualize_schedules(schedule_results, output_path=gantt_path)
+
     print(f"\n✅ 実験完了！結果は以下に保存されました:")
     print(f"  - 詳細データ: {csv_path}")
     print(f"  - レポート: {report_path}")
@@ -128,6 +163,7 @@ def main():
     print(f"  - 各指標比較: {metrics_graph_path}")
     print(f"  - スコア分布: {distribution_graph_path}")
     print(f"  - 統計的有意差: {significance_graph_path}")
+    print(f"  - ガントチャート: {gantt_path}")
     print(f"  - 総合レポート（PDF）: {EXPERIMENT_CONFIG['output_dir']}/comprehensive_report_{timestamp}.pdf")
 
 

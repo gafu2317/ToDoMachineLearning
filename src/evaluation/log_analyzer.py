@@ -71,7 +71,6 @@ class SimulationLogAnalyzer:
                     completed = entry['completed']
                     concentration = entry['concentration']
                     succeeded = entry.get('succeeded', True)  # 古いログとの互換性
-                    difficulty = entry.get('difficulty', 1)
                     failed_attempts = entry.get('failed_attempts', 0)
 
                     # 完了タスクから詳細情報を取得
@@ -87,7 +86,7 @@ class SimulationLogAnalyzer:
 
                     report.append(f"**{time_str}** - {status}")
                     report.append(f"- タスク: {task_info['name']} (ID: {task_id})")
-                    report.append(f"- 重要度: {task_info['priority']} / 難易度: {difficulty} (スコア: {task_info['score']})")
+                    report.append(f"- 重要度: {task_info['priority']} (スコア: {task_info['score']})")
                     report.append(f"- 作業時間: {duration:.0f}分")
                     report.append(f"- 集中レベル: {concentration:.2f}")
                     if failed_attempts > 0:

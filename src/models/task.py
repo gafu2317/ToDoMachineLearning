@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
 import random
-from config import TASK_DIFFICULTY_CONFIG, TASK_GENERATION_CONFIG
+from config import TASK_GENERATION_CONFIG
 
 
 class Priority(Enum):
@@ -18,7 +18,6 @@ class Task:
     base_duration_minutes: int
     priority: Priority
     deadline: datetime
-    difficulty: int = 1  # 難易度 1(簡単) ~ 3(難しい)
     is_completed: bool = False
     genre: str = '1'  # ジャンル（数字タグ）
 
@@ -52,33 +51,6 @@ class Task:
         else:
             priority = Priority.HIGH
 
-        # 難易度: 重要度と相関（重要なタスクほど難しい傾向）
-        difficulty_rand = random.random()
-        if priority == Priority.HIGH:
-            # 重要度高: 難しいタスクが多い
-            if difficulty_rand < 0.6:  # 60%
-                difficulty = 3
-            elif difficulty_rand < 0.9:  # 30%
-                difficulty = 2
-            else:  # 10%
-                difficulty = 1
-        elif priority == Priority.MEDIUM:
-            # 重要度中: 普通のタスクが多い
-            if difficulty_rand < 0.6:  # 60%
-                difficulty = 2
-            elif difficulty_rand < 0.8:  # 20%
-                difficulty = 3
-            else:  # 20%
-                difficulty = 1
-        else:  # Priority.LOW
-            # 重要度低: 簡単なタスクが多い
-            if difficulty_rand < 0.7:  # 70%
-                difficulty = 1
-            elif difficulty_rand < 0.9:  # 20%
-                difficulty = 2
-            else:  # 10%
-                difficulty = 3
-        
         # 締切: 時間と重要度の両方を考慮（より余裕を持たせる）
         time_factor = base_duration / 60  # 時間の影響
         priority_factor = priority.value  # 重要度の影響
@@ -107,6 +79,5 @@ class Task:
             base_duration_minutes=base_duration,
             priority=priority,
             deadline=deadline,
-            difficulty=difficulty,
             genre=selected_genre
         )

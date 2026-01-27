@@ -57,6 +57,29 @@ RL_CONFIG = {
     'epsilon': 0.1
 }
 
+# 強化学習の状態空間離散化設定
+# 警告: これらの値を変更すると、既存の学習済みQ-tableと互換性がなくなる可能性があります。
+# 変更後は必ずtrain_rl_model.pyを再実行してモデルを再学習してください。
+RL_STATE_SPACE_CONFIG = {
+    # タスク数の離散化
+    'num_tasks_bin_divisor': 10,      # タスク数を何個ずつの区間に分けるか
+    'num_tasks_bin_max': 10,          # タスク数区間の最大値
+
+    # 重要度比率の離散化
+    'high_priority_ratio_bins': 5,    # 重要度比率の区間数（0-5）
+
+    # 締切の離散化
+    'deadline_bin_hours': 12,         # 締切を何時間ごとに区間化するか
+    'deadline_bin_max': 10,           # 締切区間の最大値
+
+    # 平均時間の離散化
+    'avg_duration_bin_minutes': 20,   # 平均時間を何分ごとに区間化するか
+    'avg_duration_bin_max': 5,        # 平均時間区間の最大値
+
+    # 集中力レベルの離散化
+    'concentration_bins': 4,          # 集中力レベルの区間数（0-4）
+}
+
 # タスク生成設定
 TASK_GENERATION_CONFIG = {
     # タスク時間の範囲（分）
@@ -83,20 +106,12 @@ TASK_GENERATION_CONFIG = {
     'max_attempts': 3,  # タスクの最大試行回数
 }
 
-# タスク難易度設定
-TASK_DIFFICULTY_CONFIG = {
-    # 難易度別の必要集中力レベル
-    'concentration_thresholds': {
-        1: 0.3,  # 簡単: 30%以上で成功
-        2: 0.6,  # 普通: 60%以上で成功
-        3: 0.8,  # 難しい: 80%以上で成功
-    },
-
-    # 成功確率計算
-    'min_success_probability': 0.1,
-    'base_success_probability': 0.7,
-    'success_multiplier': 2.0,
-    'failure_multiplier': 0.5,
+# タスク優先度別の必要集中力レベル
+TASK_PRIORITY_THRESHOLDS = {
+    # Priority.value -> 必要集中力レベル
+    1: 0.3,  # LOW: 30%以上で最適
+    2: 0.6,  # MEDIUM: 60%以上で最適
+    3: 0.8,  # HIGH: 80%以上で最適
 }
 
 # スケジューリング設定
@@ -116,7 +131,7 @@ SCHEDULING_CONFIG = {
 RL_REWARD_CONFIG = {
     # ボーナス報酬
     'high_concentration_bonus': 20,
-    'difficulty_bonus': 30,
+    'high_priority_bonus': 30,
 
     # ペナルティ
     'failure_time_penalty_multiplier': 0.5,
@@ -124,7 +139,7 @@ RL_REWARD_CONFIG = {
 
     # ボーナス条件
     'high_concentration_threshold': 0.7,
-    'difficulty_bonus_threshold': 0.8,
+    'high_priority_threshold': 0.8,
     'reckless_concentration_threshold': 0.6,
 }
 

@@ -157,7 +157,6 @@ class TaskSchedulingSimulation:
                         'task_id': selected_task.id,
                         'duration': work_duration,
                         'completed': selected_task.is_completed,
-                        'difficulty': selected_task.difficulty,
                         'concentration': scheduler.concentration_model.current_level
                     })
                 
@@ -203,8 +202,8 @@ class TaskSchedulingSimulation:
             'efficiency': total_work_time / (total_work_time + total_break_time) if (total_work_time + total_break_time) > 0 else 0,
             'tasks': {
                 'total': len(all_tasks),
-                'completed': [{'id': t.id, 'score': t.get_score(), 'priority': t.priority.name, 'difficulty': t.difficulty} for t in completed_tasks],
-                'incomplete': [{'id': t.id, 'score': t.get_score(), 'priority': t.priority.name, 'difficulty': t.difficulty} for t in incomplete_tasks]
+                'completed': [{'id': t.id, 'score': t.get_score(), 'priority': t.priority.name} for t in completed_tasks],
+                'incomplete': [{'id': t.id, 'score': t.get_score(), 'priority': t.priority.name} for t in incomplete_tasks]
             },
             'simulation_log': simulation_log
         }

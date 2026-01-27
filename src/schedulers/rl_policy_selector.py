@@ -98,26 +98,39 @@ class PolicyBasedQLearningSelector(TaskSelector):
         if not tasks:
             return (0, 0, 0, 0, 0)
 
+        # 設定値を読み込み
+        from config import RL_STATE_SPACE_CONFIG
+        config = RL_STATE_SPACE_CONFIG
+
         # タスク数の区間
-        num_tasks_bin = min(len(tasks) // 10, 10)  # 0-10区間
+        num_tasks_bin = min(
+            len(tasks) // config['num_tasks_bin_divisor'],
+            config['num_tasks_bin_max']
+        )
 
         # 重要度分布
         high_ratio = sum(1 for t in tasks if t.priority == Priority.HIGH) / len(tasks)
-        high_bin = int(high_ratio * 5)  # 0-5区間
+        high_bin = int(high_ratio * config['high_priority_ratio_bins'])
 
         # 締切の緊急度
         min_deadline_hours = min(
             max(0, (task.deadline - current_time).total_seconds() / 3600)
             for task in tasks
         )
-        deadline_bin = min(int(min_deadline_hours / 12), 10)  # 12時間ごと、0-10区間
+        deadline_bin = min(
+            int(min_deadline_hours / config['deadline_bin_hours']),
+            config['deadline_bin_max']
+        )
 
         # タスクの平均時間
         avg_duration = np.mean([t.base_duration_minutes for t in tasks])
-        duration_bin = min(int(avg_duration / 20), 5)  # 20分ごと、0-5区間
+        duration_bin = min(
+            int(avg_duration / config['avg_duration_bin_minutes']),
+            config['avg_duration_bin_max']
+        )
 
         # 集中力レベル
-        concentration_bin = int(concentration_level * 4)  # 0-4区間（0.0-0.25, 0.25-0.5, 0.5-0.75, 0.75-1.0）
+        concentration_bin = int(concentration_level * config['concentration_bins'])
 
         # NOTE: 依存関係情報は既にready_tasksのフィルタリングで考慮済み
         # 状態空間は変更しない（既存モデルとの互換性維持）
@@ -165,12 +178,12 @@ class PolicyBasedQLearningSelector(TaskSelector):
             return max(candidate_tasks, key=urgency_score)
 
         elif policy == "concentration_matched":
-            # 集中力に合った難易度のタスクを選ぶ
-            # 集中力が高い時は難しいタスク、低い時は簡単なタスクを選ぶ
+            # 集中力に合った優先度のタスクを選ぶ
+            # 集中力が高い時は高優先度タスク、低い時は低優先度タスクを選ぶ
             def concentration_match_score(t):
                 # 集中力閾値との距離を計算
-                thresholds = {1: 0.3, 2: 0.6, 3: 0.8}
-                required = thresholds.get(t.difficulty, 0.5)
+                from config import TASK_PRIORITY_THRESHOLDS
+                required = TASK_PRIORITY_THRESHOLDS.get(t.priority.value, 0.5)
 
                 # 集中力が要件を満たしている場合、スコアが高いタスクを優先
                 if concentration_level >= required:
@@ -182,16 +195,16 @@ class PolicyBasedQLearningSelector(TaskSelector):
             return max(candidate_tasks, key=concentration_match_score)
 
         elif policy == "safe_high_priority":
-            # 集中力に対して適切な難易度のタスクの中で、重要度が高いものを選ぶ
-            thresholds = {1: 0.3, 2: 0.6, 3: 0.8}
+            # 集中力に対して適切な優先度のタスクの中で、重要度が高いものを選ぶ
+            from config import TASK_PRIORITY_THRESHOLDS
             safe_tasks = [t for t in candidate_tasks
-                         if concentration_level >= thresholds.get(t.difficulty, 0.5)]
+                         if concentration_level >= TASK_PRIORITY_THRESHOLDS.get(t.priority.value, 0.5)]
 
             if safe_tasks:
                 return max(safe_tasks, key=lambda t: (t.priority.value, t.get_score()))
             else:
-                # 適切なタスクがない場合は最も簡単なタスクを選ぶ
-                return min(candidate_tasks, key=lambda t: t.difficulty)
+                # 適切なタスクがない場合は最も優先度が低いタスクを選ぶ
+                return min(candidate_tasks, key=lambda t: t.priority.value)
 
         # デフォルト: 最初のタスク
         return candidate_tasks[0] if candidate_tasks else tasks[0]
@@ -255,9 +268,9 @@ class PolicyBasedQLearningSelector(TaskSelector):
         if concentration_level > config['high_concentration_threshold']:
             reward += config['high_concentration_bonus']
 
-        # 難易度ボーナス（難しいタスクを高集中で完了した場合）
-        if task.difficulty == 3 and concentration_level >= config['difficulty_bonus_threshold']:
-            reward += config['difficulty_bonus']
+        # 高優先度ボーナス（高優先度タスクを高集中で完了した場合）
+        if task.priority == Priority.HIGH and concentration_level >= config['high_priority_threshold']:
+            reward += config['high_priority_bonus']
 
         # 効率ペナルティ（集中力不足で時間がかかった場合）
         if actual_duration and actual_duration > task.base_duration_minutes:
@@ -265,9 +278,9 @@ class PolicyBasedQLearningSelector(TaskSelector):
             extra_time = actual_duration - task.base_duration_minutes
             reward -= extra_time * 0.5
 
-        # 集中力が足りないのに難しいタスクを選んだ場合はペナルティ
-        thresholds = {1: 0.3, 2: 0.6, 3: 0.8}
-        required = thresholds.get(task.difficulty, 0.5)
+        # 集中力が足りないのに高優先度タスクを選んだ場合はペナルティ
+        from config import TASK_PRIORITY_THRESHOLDS
+        required = TASK_PRIORITY_THRESHOLDS.get(task.priority.value, 0.5)
         if concentration_level < required:
             reward -= config['reckless_attempt_penalty']
 
