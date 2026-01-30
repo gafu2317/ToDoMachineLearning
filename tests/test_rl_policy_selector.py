@@ -28,12 +28,12 @@ class TestPolicyBasedQLearningSelector:
         """状態取得の検証"""
         selector = PolicyBasedQLearningSelector(**RL_CONFIG)
 
-        # 集中力レベルを指定して状態を取得
-        state = selector._get_state(sample_tasks, start_time, concentration_level=0.8)
+        # 集中力レベルと疲労蓄積度を指定して状態を取得
+        state = selector._get_state(sample_tasks, start_time, concentration_level=0.8, fatigue_accumulation=0.5)
 
-        # 状態が5つの要素を持つタプルであることを確認
+        # 状態が6つの要素を持つタプルであることを確認（疲労蓄積度を追加）
         assert isinstance(state, tuple)
-        assert len(state) == 5
+        assert len(state) == 6
 
         # 各要素が非負の整数であることを確認
         for element in state:
@@ -45,10 +45,10 @@ class TestPolicyBasedQLearningSelector:
         selector = PolicyBasedQLearningSelector(**RL_CONFIG)
 
         # 状態を取得
-        state = selector._get_state(sample_tasks, start_time, concentration_level=0.8)
+        state = selector._get_state(sample_tasks, start_time, concentration_level=0.8, fatigue_accumulation=0.5)
 
         # 状態の各要素が期待される範囲内にあることを確認
-        # (num_tasks_bin, high_bin, deadline_bin, duration_bin, concentration_bin)
+        # (num_tasks_bin, high_bin, deadline_bin, duration_bin, concentration_bin, fatigue_bin)
 
         # タスク数ビン: 0-10の範囲
         assert 0 <= state[0] <= 10
@@ -65,14 +65,17 @@ class TestPolicyBasedQLearningSelector:
         # 集中力ビン: 0-4の範囲
         assert 0 <= state[4] <= 4
 
+        # 疲労蓄積度ビン: 0-5の範囲（新規追加）
+        assert 0 <= state[5] <= 5
+
     def test_get_state_empty_tasks(self, start_time):
         """空のタスクリストに対する状態取得の検証"""
         selector = PolicyBasedQLearningSelector(**RL_CONFIG)
 
-        state = selector._get_state([], start_time, concentration_level=0.8)
+        state = selector._get_state([], start_time, concentration_level=0.8, fatigue_accumulation=0.0)
 
-        # 空のタスクリストの場合は (0, 0, 0, 0, 0) が返される
-        assert state == (0, 0, 0, 0, 0)
+        # 空のタスクリストの場合は (0, 0, 0, 0, 0, 0) が返される（疲労蓄積度を追加）
+        assert state == (0, 0, 0, 0, 0, 0)
 
     def test_select_task_by_policy(self, sample_tasks, start_time):
         """ポリシーベースタスク選択の検証"""
@@ -209,8 +212,8 @@ class TestPolicyBasedQLearningSelector:
         """Q-tableの保存と読み込みの検証"""
         selector = PolicyBasedQLearningSelector(**RL_CONFIG)
 
-        # Q-tableにデータを追加
-        selector.q_table[(1, 2, 3, 4, 5)] = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]
+        # Q-tableにデータを追加（6要素のキーに変更）
+        selector.q_table[(1, 2, 3, 4, 5, 6)] = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]
 
         # 保存
         filepath = tmp_path / "test_q_table.pkl"
@@ -222,8 +225,8 @@ class TestPolicyBasedQLearningSelector:
         new_selector.load_q_table(str(filepath))
 
         # Q-tableが正しく読み込まれたことを確認
-        assert (1, 2, 3, 4, 5) in new_selector.q_table
-        assert list(new_selector.q_table[(1, 2, 3, 4, 5)]) == [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]
+        assert (1, 2, 3, 4, 5, 6) in new_selector.q_table
+        assert list(new_selector.q_table[(1, 2, 3, 4, 5, 6)]) == [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]
 
 
 # numpyをインポート（テスト内で使用）

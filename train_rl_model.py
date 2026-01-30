@@ -39,10 +39,11 @@ def main():
     print(f"  - タスク数: 60個（固定）")
     print(f"  - 学習データセット: {train_loader.get_num_datasets()}セット")
 
-    # 強化学習スケジューラーを作成
+    # 強化学習スケジューラーを作成（学習モードで）
     concentration = ConcentrationModel(**CONCENTRATION_CONFIG)
     rl_scheduler = RLLearningScheduler(
         concentration_model=concentration,
+        learning_mode=True,  # 学習モードを明示的に有効化
         **RL_CONFIG
     )
 

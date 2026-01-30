@@ -29,11 +29,13 @@ class PolicyBasedQLearningSelector(TaskSelector):
     def __init__(self,
                  learning_rate: float = 0.1,
                  discount_factor: float = 0.9,
-                 epsilon: float = 0.1):
+                 epsilon: float = 0.1,
+                 learning_mode: bool = True):
 
         self.learning_rate = learning_rate
         self.discount_factor = discount_factor
         self.epsilon = epsilon
+        self.learning_mode = learning_mode
 
         # Q-table: state -> action -> Q値
         self.q_table = {}
@@ -43,7 +45,9 @@ class PolicyBasedQLearningSelector(TaskSelector):
         self.action_history = []
         self.reward_history = []
 
-    def select_task(self, tasks: List[Task], current_time: datetime, concentration_level: float = 1.0) -> Optional[Task]:
+    def select_task(self, tasks: List[Task], current_time: datetime,
+                    concentration_level: float = 1.0,
+                    fatigue_accumulation: float = 0.0) -> Optional[Task]:
         """Q-learningによりタスクを選択"""
 
         if not tasks:
@@ -70,8 +74,8 @@ class PolicyBasedQLearningSelector(TaskSelector):
 
         ready_tasks = feasible_tasks
 
-        # 状態を取得（集中力レベルを含む）
-        state = self._get_state(ready_tasks, current_time, concentration_level)
+        # 状態を取得（集中力レベルと疲労蓄積度を含む）
+        state = self._get_state(ready_tasks, current_time, concentration_level, fatigue_accumulation)
 
         # ε-greedy探索
         if np.random.random() < self.epsilon:
@@ -92,11 +96,13 @@ class PolicyBasedQLearningSelector(TaskSelector):
 
         return selected_task
 
-    def _get_state(self, tasks: List[Task], current_time: datetime, concentration_level: float = 1.0) -> Tuple:
+    def _get_state(self, tasks: List[Task], current_time: datetime,
+                   concentration_level: float = 1.0,
+                   fatigue_accumulation: float = 0.0) -> Tuple:
         """現在の状態を取得（改良版）"""
 
         if not tasks:
-            return (0, 0, 0, 0, 0)
+            return (0, 0, 0, 0, 0, 0)
 
         # 設定値を読み込み
         from config import RL_STATE_SPACE_CONFIG
@@ -132,9 +138,10 @@ class PolicyBasedQLearningSelector(TaskSelector):
         # 集中力レベル
         concentration_bin = int(concentration_level * config['concentration_bins'])
 
-        # NOTE: 依存関係情報は既にready_tasksのフィルタリングで考慮済み
-        # 状態空間は変更しない（既存モデルとの互換性維持）
-        return (num_tasks_bin, high_bin, deadline_bin, duration_bin, concentration_bin)
+        # 疲労蓄積度の離散化（新規追加）
+        fatigue_bin = int(fatigue_accumulation * config['fatigue_bins'])
+
+        return (num_tasks_bin, high_bin, deadline_bin, duration_bin, concentration_bin, fatigue_bin)
 
     def _select_task_by_policy(self, tasks: List[Task], action: int, current_time: datetime, concentration_level: float = 1.0) -> Task:
         """ポリシーに基づいてタスクを選択"""
@@ -218,7 +225,11 @@ class PolicyBasedQLearningSelector(TaskSelector):
         return np.argmax(self.q_table[state])
 
     def update_q_value(self, reward: float, next_state: Tuple = None, done: bool = False):
-        """Q値を更新"""
+        """Q値を更新（学習モードの時のみ）"""
+
+        # 学習モードでない場合は更新しない
+        if not self.learning_mode:
+            return
 
         if len(self.state_history) < 1:
             return
@@ -285,6 +296,10 @@ class PolicyBasedQLearningSelector(TaskSelector):
             reward -= config['reckless_attempt_penalty']
 
         return reward
+
+    def set_learning_mode(self, enabled: bool):
+        """学習モードを設定"""
+        self.learning_mode = enabled
 
     def reset_episode(self):
         """エピソード終了時のリセット"""

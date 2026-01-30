@@ -10,41 +10,56 @@ from ..models.concentration import ConcentrationModel
 class RLLearningScheduler(Scheduler):
     """学習機能付きの強化学習スケジューラー"""
     
-    def __init__(self, 
+    def __init__(self,
                  concentration_model: ConcentrationModel,
                  learning_rate: float = 0.1,
                  discount_factor: float = 0.9,
-                 epsilon: float = 0.1):
-        
+                 epsilon: float = 0.1,
+                 learning_mode: bool = True):
+
+        self.learning_mode = learning_mode
+
         # ポリシーベースQ-learningタスク選択戦略を作成
         ql_task_selector = PolicyBasedQLearningSelector(
             learning_rate=learning_rate,
             discount_factor=discount_factor,
-            epsilon=epsilon
+            epsilon=epsilon,
+            learning_mode=learning_mode
         )
-        
+
         # 集中力ベース休憩戦略を作成
         break_strategy = ConcentrationBreakStrategy(concentration_model)
-        
+
         # 親クラス初期化
         super().__init__(ql_task_selector, break_strategy)
-        
+
+        # 学習モードに応じてepsilonを調整
+        from config import RL_LEARNING_MODE_CONFIG
+        if learning_mode:
+            self.task_selector.epsilon = RL_LEARNING_MODE_CONFIG['train_epsilon']
+        else:
+            self.task_selector.epsilon = RL_LEARNING_MODE_CONFIG['test_epsilon']
+
         # 強化学習用の追加情報
         self.last_task = None
         self.last_action_time = None
 
     def select_next_task(self, tasks: List[Task], current_time: datetime) -> Optional[Task]:
         """
-        次に実行するタスクを選択する（集中力レベルを渡すためにオーバーライド）
+        次に実行するタスクを選択する（集中力レベルと疲労蓄積度を渡すためにオーバーライド）
         """
         if self.break_strategy.should_take_break():
             return None
 
-        # 集中力レベルを含めてタスク選択
+        # 疲労蓄積度を取得
+        fatigue_accumulation = self.concentration_model.get_fatigue_accumulation()
+
+        # 集中力レベルと疲労蓄積度を含めてタスク選択
         return self.task_selector.select_task(
             tasks,
             current_time,
-            concentration_level=self.concentration_model.current_level
+            concentration_level=self.concentration_model.current_level,
+            fatigue_accumulation=fatigue_accumulation
         )
 
     def work_on_task(self, task: Task) -> float:
@@ -109,6 +124,17 @@ class RLLearningScheduler(Scheduler):
     def set_epsilon(self, epsilon: float):
         """探索率を設定（学習段階の調整用）"""
         self.task_selector.epsilon = epsilon
+
+    def set_learning_mode(self, enabled: bool):
+        """学習モードを切り替え"""
+        self.learning_mode = enabled
+        self.task_selector.set_learning_mode(enabled)
+
+        from config import RL_LEARNING_MODE_CONFIG
+        if enabled:
+            self.task_selector.epsilon = RL_LEARNING_MODE_CONFIG['train_epsilon']
+        else:
+            self.task_selector.epsilon = RL_LEARNING_MODE_CONFIG['test_epsilon']
 
     def save_model(self, filepath: str):
         """学習済みモデルを保存"""

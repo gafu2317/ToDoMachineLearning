@@ -139,3 +139,15 @@ class ConcentrationModel:
 
         # 現在のジャンルを記憶
         self.last_genre = current_genre
+
+    def get_observable_state(self) -> dict:
+        """エージェントが観測可能な状態情報を返す"""
+        return {
+            'concentration_level': self.current_level,
+            'continuous_work_time': self.continuous_work_time,
+            'fatigue_accumulation': self.get_fatigue_accumulation()
+        }
+
+    def get_fatigue_accumulation(self) -> float:
+        """疲労蓄積度を計算（0.0～1.0）"""
+        return min(1.0, self.continuous_work_time / self.max_work_time)

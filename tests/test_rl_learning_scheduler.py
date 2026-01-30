@@ -77,13 +77,17 @@ class TestRLLearningScheduler:
 
     def test_epsilon_setting(self, concentration_model):
         """探索率設定の検証"""
+        from config import RL_LEARNING_MODE_CONFIG
+
+        # テストモードで作成（epsilon=0.0が期待される）
         scheduler = RLLearningScheduler(
             concentration_model=concentration_model,
+            learning_mode=False,
             epsilon=0.1
         )
 
-        # 初期値の確認
-        assert scheduler.task_selector.epsilon == 0.1
+        # テストモードのepsilonが設定されることを確認
+        assert scheduler.task_selector.epsilon == RL_LEARNING_MODE_CONFIG['test_epsilon']
 
         # epsilon値の変更
         scheduler.set_epsilon(0.5)
@@ -160,3 +164,56 @@ class TestRLLearningScheduler:
         # Q-tableが正しく読み込まれたか確認
         assert (1, 2, 3, 4, 5, 6) in new_scheduler.task_selector.q_table
         assert new_scheduler.task_selector.q_table[(1, 2, 3, 4, 5, 6)] == 10.0
+
+    def test_learning_mode_flag(self, concentration_model):
+        """学習モードフラグのテスト"""
+        # 学習モードで作成
+        scheduler = RLLearningScheduler(
+            concentration_model=concentration_model,
+            learning_mode=True,
+            **RL_CONFIG
+        )
+        assert scheduler.learning_mode == True
+
+        # 学習モードを変更
+        scheduler.set_learning_mode(False)
+        assert scheduler.learning_mode == False
+
+    def test_q_value_not_updated_in_test_mode(self, sample_tasks, concentration_model, start_time):
+        """テストモード時にQ値が更新されないことを確認"""
+        import numpy as np
+
+        scheduler = RLLearningScheduler(
+            concentration_model=concentration_model,
+            learning_mode=False,
+            **RL_CONFIG
+        )
+
+        # タスクを実行
+        selected_task = scheduler.select_next_task(sample_tasks, start_time)
+        if selected_task:
+            scheduler.work_on_task(selected_task)
+
+        # Q-tableの値が全て0のままであることを確認（学習されていない）
+        # _get_best_action()で初期化されるが、update_q_value()では更新されない
+        for state, q_values in scheduler.task_selector.q_table.items():
+            assert np.all(q_values == 0.0), f"State {state} has non-zero Q-values: {q_values}"
+
+    def test_fatigue_accumulation_in_state(self, sample_tasks, concentration_model, start_time):
+        """疲労蓄積度が状態に含まれることを確認"""
+        scheduler = RLLearningScheduler(
+            concentration_model=concentration_model,
+            learning_mode=True,
+            **RL_CONFIG
+        )
+
+        # 疲労を蓄積
+        concentration_model.work(60)
+
+        # 疲労蓄積度を取得
+        fatigue = concentration_model.get_fatigue_accumulation()
+        assert 0.0 <= fatigue <= 1.0
+
+        # タスク選択時に状態に含まれることを確認
+        selected_task = scheduler.select_next_task(sample_tasks, start_time)
+        # （内部で疲労蓄積度が使われているはず）

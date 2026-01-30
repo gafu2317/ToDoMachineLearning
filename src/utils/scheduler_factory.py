@@ -44,7 +44,7 @@ def create_baseline_schedulers() -> Dict[str, Scheduler]:
 
 def create_rl_scheduler(model_path: str = None) -> RLLearningScheduler:
     """
-    強化学習スケジューラーを作成する
+    強化学習スケジューラーを作成する（テストモード）
 
     Args:
         model_path: 学習済みモデルのパス。Noneの場合はデフォルトモデルを使用
@@ -57,6 +57,7 @@ def create_rl_scheduler(model_path: str = None) -> RLLearningScheduler:
     concentration = ConcentrationModel(**CONCENTRATION_CONFIG)
     rl_scheduler = RLLearningScheduler(
         concentration_model=concentration,
+        learning_mode=False,  # テストモード
         **RL_CONFIG
     )
 
@@ -67,7 +68,6 @@ def create_rl_scheduler(model_path: str = None) -> RLLearningScheduler:
     # モデルが存在すれば読み込む
     if os.path.exists(model_path):
         rl_scheduler.load_model(model_path)
-        rl_scheduler.set_epsilon(0.05)  # テスト時は探索率を低く
         print(f"✅ 学習済みモデルを読み込み: {model_path}")
     else:
         print(f"⚠️  学習済みモデルが見つからない: {model_path}")
