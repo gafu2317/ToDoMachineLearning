@@ -199,4 +199,6 @@ RL_LEARNING_MODE_CONFIG = {
     'train_epsilon': 0.5,
     'test_epsilon': 0.0,
     'enable_learning': True,
+    'epsilon_decay_rate': 0.995,   # 1エピソードごとの減衰率
+    'min_epsilon': 0.05,           # epsilonの下限
 }

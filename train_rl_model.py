@@ -14,7 +14,7 @@ from src.environment.simulation import TaskSchedulingSimulation
 from src.schedulers.rl_learning_scheduler import RLLearningScheduler
 from src.models.concentration import ConcentrationModel
 from src.utils.task_loader import TaskDataLoader
-from config import DEFAULT_SIMULATION_CONFIG, RL_CONFIG, CONCENTRATION_CONFIG
+from config import DEFAULT_SIMULATION_CONFIG, RL_CONFIG, CONCENTRATION_CONFIG, RL_LEARNING_MODE_CONFIG
 
 
 def main():
@@ -56,10 +56,21 @@ def main():
     print(f"\n事前学習を開始...")
     print(f"（{num_episodes}エピソード、数分かかる可能性がある）")
 
+    # Epsilon decay パラメータ
+    initial_epsilon = RL_LEARNING_MODE_CONFIG['train_epsilon']
+    decay_rate = RL_LEARNING_MODE_CONFIG['epsilon_decay_rate']
+    min_epsilon = RL_LEARNING_MODE_CONFIG['min_epsilon']
+
     total_rewards = []
     episode_rewards = []
+    epsilon_history = []
 
     for episode in range(num_episodes):
+        # Epsilon decay
+        current_epsilon = max(min_epsilon, initial_epsilon * (decay_rate ** episode))
+        rl_scheduler.set_epsilon(current_epsilon)
+        epsilon_history.append(current_epsilon)
+
         # 学習用データセットからタスクを読み込み
         task_index = episode % train_loader.get_num_datasets()
         training_tasks = train_loader.load_tasks(task_index)
@@ -76,7 +87,7 @@ def main():
         # 進捗表示
         if (episode + 1) % 20 == 0:
             avg_reward = sum(total_rewards[-20:]) / 20
-            print(f"  エピソード {episode + 1}/{num_episodes}, 平均報酬: {avg_reward:.1f}")
+            print(f"  エピソード {episode + 1}/{num_episodes}, 平均報酬: {avg_reward:.1f}, ε: {current_epsilon:.4f}")
 
         # エピソード終了処理
         rl_scheduler.reset()

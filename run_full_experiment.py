@@ -12,6 +12,9 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from src.evaluation.evaluator import SchedulerEvaluator
 from src.utils.task_loader import TaskDataLoader
+from src.environment.simulation import TaskSchedulingSimulation
+from src.utils.scheduler_factory import create_baseline_schedulers, create_rl_scheduler
+from src.visualization.schedule_gantt import generate_schedule_comparison
 from config import DEFAULT_SIMULATION_CONFIG, EXPERIMENT_CONFIG
 
 
@@ -98,10 +101,33 @@ def main():
         significance_mark = "**有意差あり**" if test_result['significant'] else "有意差なし"
         print(f"{comparison}: p={test_result['p_value']:.4f} ({significance_mark})")
 
+    # --- ガンツチャート生成 ---
+    # 代表的な実験回を選択（RL schedulerの中央値スコアに近い）
+    rl_data = results_df[results_df['scheduler_name'] == 'rl_scheduler']
+    median_score = rl_data['total_score'].median()
+    representative_idx = (rl_data['total_score'] - median_score).abs().idxmin()
+    representative_exp_id = results_df.loc[representative_idx, 'experiment_id']
+
+    task_index = int(representative_exp_id) % test_loader.get_num_datasets()
+    tasks = test_loader.load_tasks(task_index)
+
+    schedulers = create_baseline_schedulers()
+    schedulers["rl_scheduler"] = create_rl_scheduler()
+    simulation = TaskSchedulingSimulation(**DEFAULT_SIMULATION_CONFIG)
+    schedule_results = {}
+    for name, scheduler in schedulers.items():
+        scheduler.reset()
+        schedule_results[name] = simulation.run_simulation_with_tasks(scheduler, tasks)
+
+    gantt_path = f"{EXPERIMENT_CONFIG['output_dir']}/schedule_comparison_{timestamp}.png"
+    generate_schedule_comparison(schedule_results, gantt_path)
+    print(f"スケジュール比較グラフ: {gantt_path}")
+
     print(f"\n✅ 実験完了！結果は以下に保存されました:")
     print(f"  - 詳細データ: {csv_path}")
     print(f"  - レポート: {report_path}")
     print(f"  - 強化学習分析: {rl_analysis_path}")
+    print(f"  - ガンツチャート: {gantt_path}")
 
 
 if __name__ == "__main__":

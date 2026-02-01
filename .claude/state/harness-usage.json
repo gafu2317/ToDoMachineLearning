@@ -1,16 +1,25 @@
 {
   "version": "1.0",
-  "updatedAt": "2026-01-30T12:53:40.382Z",
+  "updatedAt": "2026-02-01T14:50:25.525Z",
   "skills": {},
-  "commands": {},
+  "commands": {
+    "rate-limit-options": {
+      "count": 18,
+      "lastUsed": "2026-02-01T14:50:25.525Z"
+    }
+  },
   "agents": {
     "Explore": {
-      "count": 7,
-      "lastUsed": "2026-01-30T12:51:12.457Z"
+      "count": 9,
+      "lastUsed": "2026-02-01T13:53:03.177Z"
     },
     "Plan": {
       "count": 5,
       "lastUsed": "2026-01-30T12:53:40.381Z"
+    },
+    "Bash": {
+      "count": 2,
+      "lastUsed": "2026-02-01T13:32:29.209Z"
     }
   },
   "hooks": {}
