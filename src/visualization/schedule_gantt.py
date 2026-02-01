@@ -34,13 +34,14 @@ SIM_START = datetime(2024, 1, 1, 9, 0)
 WORK_MINUTES_PER_DAY = 480  # 8時間
 
 
-def generate_schedule_comparison(schedule_results: Dict[str, Dict], output_path: str):
+def generate_schedule_comparison(schedule_results: Dict[str, Dict], output_path: str, fig_title: str = None):
     """
     スケジュール比較ガンツチャートを生成する
 
     Args:
         schedule_results: スケジューラー名をキー、run_simulation_with_tasks()の戻り値を値とする辞書
         output_path: 出力画像パス
+        fig_title: 図全体のタイトル（Noneの場合なし）
     """
     num_schedulers = len(schedule_results)
 
@@ -53,6 +54,9 @@ def generate_schedule_comparison(schedule_results: Dict[str, Dict], output_path:
 
         ax_inc = fig.add_subplot(gs[1, col])
         _draw_incomplete(ax_inc, result)
+
+    if fig_title:
+        fig.suptitle(fig_title, fontsize=14, fontweight='bold', y=1.02)
 
     plt.savefig(output_path, dpi=100, bbox_inches='tight')
     plt.close(fig)
@@ -72,7 +76,7 @@ def _build_task_priority_map(result: Dict) -> Dict[int, str]:
     return priority_map
 
 
-def _draw_gantt(ax: plt.Axes, scheduler_name: str, result: Dict):
+def _draw_gantt(ax: plt.Axes, scheduler_name: str, result: Dict, title_suffix: str = None):
     """
     1つのガンツチャートを描画する
 
@@ -80,6 +84,7 @@ def _draw_gantt(ax: plt.Axes, scheduler_name: str, result: Dict):
         ax: matplotlib Axes
         scheduler_name: スケジューラー名
         result: シミュレーション結果
+        title_suffix: タイトルに付加する文字列（例: "[Planned]"）
     """
     task_priority_map = _build_task_priority_map(result)
     simulation_log = result['simulation_log']
@@ -89,6 +94,22 @@ def _draw_gantt(ax: plt.Axes, scheduler_name: str, result: Dict):
     completion_pct = result['completion_rate'] * 100
     total_score = result['total_score']
     incomplete_count = result['incomplete_tasks_count']
+
+    # 最大終了時刻を事前スキャン（隠しパラメータによる時間オーバーに対応）
+    max_end_minutes = WORK_MINUTES_PER_DAY
+    for entry in simulation_log:
+        end_time = datetime.fromisoformat(entry['time'])
+        duration = entry['duration']
+        start_time_dt = end_time - timedelta(minutes=duration)
+        day = (start_time_dt.date() - SIM_START.date()).days
+        if day < 0 or day > 6:
+            continue
+        day_9am = datetime(start_time_dt.year, start_time_dt.month, start_time_dt.day, 9, 0)
+        end_pos = (start_time_dt - day_9am).total_seconds() / 60.0 + duration
+        if end_pos > max_end_minutes:
+            max_end_minutes = end_pos
+    # 1時間単位に切り上げ（オーバーなければ480のまま）
+    y_max = WORK_MINUTES_PER_DAY if max_end_minutes <= WORK_MINUTES_PER_DAY else ((int(max_end_minutes) // 60) + 1) * 60
 
     for entry in simulation_log:
         # 終了時刻をパース
@@ -145,8 +166,8 @@ def _draw_gantt(ax: plt.Axes, scheduler_name: str, result: Dict):
                 fontweight='bold'
             )
 
-    # Y軸を反転（上が9:00、下が17:00）
-    ax.set_ylim(WORK_MINUTES_PER_DAY, 0)
+    # Y軸を反転（上が9:00、下がy_max）
+    ax.set_ylim(y_max, 0)
     ax.set_xlim(-0.5, 6.5)
 
     # X軸設定（FixedLocatorで全7日を強制表示）
@@ -155,12 +176,17 @@ def _draw_gantt(ax: plt.Axes, scheduler_name: str, result: Dict):
     ax.tick_params(axis='x', labelsize=8)
     ax.set_xlabel('Date', fontsize=9)
 
-    # Y軸設定
-    y_ticks = list(range(0, WORK_MINUTES_PER_DAY + 1, 60))
-    y_labels = [f"{9 + h}:00" for h in range(9)]  # 9:00 ~ 17:00
+    # Y軸設定（動的に時間範囲を拡張）
+    num_hours = y_max // 60
+    y_ticks = list(range(0, y_max + 1, 60))
+    y_labels = [f"{9 + h}:00" for h in range(num_hours + 1)]
     ax.set_yticks(y_ticks)
     ax.set_yticklabels(y_labels, fontsize=7.5)
     ax.set_ylabel('Time', fontsize=9)
+
+    # オーバータイム時に予定終了時刻（17:00）の境界線を描画
+    if y_max > WORK_MINUTES_PER_DAY:
+        ax.axhline(y=WORK_MINUTES_PER_DAY, color='red', linestyle='--', linewidth=1.0, alpha=0.6)
 
     # レジェンド
     legend_patches = [
@@ -179,8 +205,11 @@ def _draw_gantt(ax: plt.Axes, scheduler_name: str, result: Dict):
     )
 
     # タイトル2行
+    title_line1 = scheduler_name
+    if title_suffix:
+        title_line1 += f" {title_suffix}"
     ax.set_title(
-        f"{scheduler_name}\n"
+        f"{title_line1}\n"
         f"Completion: {completion_pct:.1f}% | Score: {total_score}",
         fontsize=10,
         fontweight='bold',
@@ -288,5 +317,37 @@ def generate_weekly_progression(weekly_results: Dict[str, Dict], output_path: st
         _draw_incomplete(ax_inc, result)
 
     fig.suptitle('RL Scheduler: Weekly Learning Progression', fontsize=14, fontweight='bold', y=1.02)
+    plt.savefig(output_path, dpi=100, bbox_inches='tight')
+    plt.close(fig)
+
+
+def generate_planned_vs_actual(planned_result: Dict, actual_result: Dict, scheduler_name: str, output_path: str):
+    """
+    予定と実際のスケジュールを2カラム横並りで描画する
+
+    Args:
+        planned_result: 予定スケジュールの結果（隠しパラメータなし）
+        actual_result: 実際スケジュールの結果（隠しパラメータあり）
+        scheduler_name: スケジューラー名
+        output_path: 出力画像パス
+    """
+    fig = plt.figure(figsize=(22, 12))
+    gs = fig.add_gridspec(2, 2, height_ratios=[4, 1], hspace=0.35, wspace=0.3)
+
+    # 左カラム: Planned
+    ax_gantt_p = fig.add_subplot(gs[0, 0])
+    _draw_gantt(ax_gantt_p, scheduler_name, planned_result, title_suffix="[Planned]")
+
+    ax_inc_p = fig.add_subplot(gs[1, 0])
+    _draw_incomplete(ax_inc_p, planned_result)
+
+    # 右カラム: Actual
+    ax_gantt_a = fig.add_subplot(gs[0, 1])
+    _draw_gantt(ax_gantt_a, scheduler_name, actual_result, title_suffix="[Actual]")
+
+    ax_inc_a = fig.add_subplot(gs[1, 1])
+    _draw_incomplete(ax_inc_a, actual_result)
+
+    fig.suptitle(f"{scheduler_name}: Planned vs Actual", fontsize=14, fontweight='bold', y=1.02)
     plt.savefig(output_path, dpi=100, bbox_inches='tight')
     plt.close(fig)

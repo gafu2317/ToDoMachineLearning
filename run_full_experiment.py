@@ -5,6 +5,7 @@
 
 import sys
 import os
+import copy
 from datetime import datetime
 
 # プロジェクトルートを追加
@@ -12,9 +13,9 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from src.evaluation.evaluator import SchedulerEvaluator
 from src.utils.task_loader import TaskDataLoader
-from src.environment.simulation import TaskSchedulingSimulation
+from src.environment.simulation import TaskSchedulingSimulation, attach_hidden_params
 from src.utils.scheduler_factory import create_baseline_schedulers, create_rl_scheduler
-from src.visualization.schedule_gantt import generate_schedule_comparison, generate_weekly_progression
+from src.visualization.schedule_gantt import generate_schedule_comparison, generate_planned_vs_actual
 from config import DEFAULT_SIMULATION_CONFIG, EXPERIMENT_CONFIG
 
 
@@ -123,31 +124,66 @@ def main():
     generate_schedule_comparison(schedule_results, gantt_path)
     print(f"スケジュール比較グラフ: {gantt_path}")
 
-    # --- RL 週ごとの学習進行グラフ ---
-    # 事前学習済みモデルから開始し、learning_mode=Trueで3週連続実行
-    # Q-tableはweek間で継続し、隠れパラメータによる実際の時間変動を経験して学習していく
+    # --- 3週間の可視化 ---
+    # RL は1インスタンスで3週間を通じて学習を継続
+    # Week N: 予定実行(学習なし) → 実際実行(学習あり) → Q-table更新
     rl_weekly = create_rl_scheduler()
-    rl_weekly.set_learning_mode(True)
 
-    weekly_results = {}
     for week in range(3):
+        week_num = week + 1
+        week_dir = f"{EXPERIMENT_CONFIG['output_dir']}/{timestamp}/week_{week_num}"
+        os.makedirs(week_dir, exist_ok=True)
+
         week_task_index = (int(representative_exp_id) + week) % test_loader.get_num_datasets()
-        week_tasks = test_loader.load_tasks(week_task_index)
+        clean_tasks = test_loader.load_tasks(week_task_index)
+        hidden_tasks = attach_hidden_params(copy.deepcopy(clean_tasks))
 
-        week_sim = TaskSchedulingSimulation(**DEFAULT_SIMULATION_CONFIG)
-        weekly_results[f"Week {week + 1}"] = week_sim.run_simulation_with_tasks(rl_weekly, week_tasks)
-        # reset()はエピソード状態のみリセット。Q-tableは継続する
-        rl_weekly.reset()
+        simulation = TaskSchedulingSimulation(**DEFAULT_SIMULATION_CONFIG)
 
-    weekly_path = f"{EXPERIMENT_CONFIG['output_dir']}/weekly_progression_{timestamp}.png"
-    generate_weekly_progression(weekly_results, weekly_path)
-    print(f"週別学習進行グラフ: {weekly_path}")
+        # --- 予定スケジュール（隠しパラメータなし） ---
+        planned_results = {}
+        for name, scheduler in create_baseline_schedulers().items():
+            planned_results[name] = simulation.run_simulation_with_tasks(scheduler, clean_tasks)
+
+        # RL 予定: 学習なし
+        rl_weekly.set_learning_mode(False)
+        planned_results["rl_scheduler"] = simulation.run_simulation_with_tasks(rl_weekly, clean_tasks)
+
+        # --- 実際スケジュール（隠しパラメータあり） ---
+        actual_results = {}
+        for name, scheduler in create_baseline_schedulers().items():
+            actual_results[name] = simulation.run_simulation_with_tasks(scheduler, hidden_tasks)
+
+        # RL 実際: 学習あり（Q-table更新）
+        rl_weekly.set_learning_mode(True)
+        actual_results["rl_scheduler"] = simulation.run_simulation_with_tasks(rl_weekly, hidden_tasks)
+
+        # --- 画像生成 ---
+        # 1. planned_comparison.png
+        generate_schedule_comparison(
+            planned_results,
+            f"{week_dir}/planned_comparison.png",
+            fig_title=f"Week {week_num}: Planned Schedule Comparison"
+        )
+
+        # 2-5. planned_vs_actual per scheduler
+        for sched_name in ["deadline_scheduler", "priority_scheduler", "random_scheduler", "rl_scheduler"]:
+            generate_planned_vs_actual(
+                planned_results[sched_name],
+                actual_results[sched_name],
+                sched_name,
+                f"{week_dir}/planned_vs_actual_{sched_name}.png"
+            )
+
+        print(f"Week {week_num} 画像生成完了: {week_dir}")
 
     print(f"\n✅ 実験完了！結果は以下に保存されました:")
     print(f"  - 詳細データ: {csv_path}")
     print(f"  - レポート: {report_path}")
     print(f"  - 強化学習分析: {rl_analysis_path}")
     print(f"  - ガンツチャート: {gantt_path}")
+    for week_num in range(1, 4):
+        print(f"  - Week {week_num} 可視化: {EXPERIMENT_CONFIG['output_dir']}/{timestamp}/week_{week_num}/")
 
 
 if __name__ == "__main__":
