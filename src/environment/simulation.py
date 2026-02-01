@@ -186,6 +186,7 @@ class TaskSchedulingSimulation:
                         'action': 'work',
                         'task_id': selected_task.id,
                         'duration': work_duration,
+                        'base_duration': selected_task.base_duration_minutes,
                         'completed': selected_task.is_completed,
                         'concentration': scheduler.concentration_model.current_level
                     })

@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updatedAt": "2026-02-01T14:50:25.525Z",
+  "updatedAt": "2026-02-01T19:56:23.168Z",
   "skills": {},
   "commands": {
     "rate-limit-options": {
@@ -10,8 +10,8 @@
   },
   "agents": {
     "Explore": {
-      "count": 9,
-      "lastUsed": "2026-02-01T13:53:03.177Z"
+      "count": 12,
+      "lastUsed": "2026-02-01T19:56:23.167Z"
     },
     "Plan": {
       "count": 5,

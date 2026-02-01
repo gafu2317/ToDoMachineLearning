@@ -40,7 +40,9 @@ class Scheduler:
 
         # 集中力に応じた作業効率を取得
         efficiency = self.concentration_model.work(task.base_duration_minutes)
-        actual_duration = task.base_duration_minutes * efficiency
+        # 隠れパラメータによる実際の時間変動を適用（スケジューラーは事前に知らない）
+        hidden_multiplier = getattr(task, '_hidden_duration_multiplier', 1.0)
+        actual_duration = task.base_duration_minutes * hidden_multiplier * efficiency
 
         # タスクは常に完了する
         task.is_completed = True

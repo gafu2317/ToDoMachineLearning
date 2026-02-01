@@ -56,3 +56,17 @@
 {"event":"subagent_stop","timestamp":"2026-02-01T14:24:24Z","agent_id":"unknown","transcript_path":"","transcript_preview":""}
 {"event":"subagent_stop","timestamp":"2026-02-01T14:30:38Z","agent_id":"unknown","transcript_path":"","transcript_preview":""}
 {"event":"subagent_stop","timestamp":"2026-02-01T14:32:09Z","agent_id":"unknown","transcript_path":"","transcript_preview":""}
+{"event":"subagent_stop","timestamp":"2026-02-01T19:23:54Z","agent_id":"unknown","transcript_path":"","transcript_preview":""}
+{"event":"subagent_stop","timestamp":"2026-02-01T19:43:20Z","agent_id":"unknown","transcript_path":"","transcript_preview":""}
+{"event":"subagent_stop","timestamp":"2026-02-01T19:45:41Z","agent_id":"unknown","transcript_path":"","transcript_preview":""}
+{"event":"subagent_start","timestamp":"2026-02-01T19:47:52Z","agent_id":"unknown"}
+{"event":"subagent_stop","timestamp":"2026-02-01T19:49:41Z","agent_id":"unknown","transcript_path":"","transcript_preview":""}
+{"event":"subagent_stop","timestamp":"2026-02-01T19:50:06Z","agent_id":"unknown","transcript_path":"","transcript_preview":""}
+{"event":"subagent_start","timestamp":"2026-02-01T19:52:05Z","agent_id":"unknown"}
+{"event":"subagent_stop","timestamp":"2026-02-01T19:52:44Z","agent_id":"unknown","transcript_path":"","transcript_preview":""}
+{"event":"subagent_stop","timestamp":"2026-02-01T19:52:59Z","agent_id":"unknown","transcript_path":"","transcript_preview":""}
+{"event":"subagent_start","timestamp":"2026-02-01T19:55:30Z","agent_id":"unknown"}
+{"event":"subagent_stop","timestamp":"2026-02-01T19:56:23Z","agent_id":"unknown","transcript_path":"","transcript_preview":""}
+{"event":"subagent_stop","timestamp":"2026-02-01T19:57:16Z","agent_id":"unknown","transcript_path":"","transcript_preview":""}
+{"event":"subagent_stop","timestamp":"2026-02-01T19:59:00Z","agent_id":"unknown","transcript_path":"","transcript_preview":""}
+{"event":"subagent_stop","timestamp":"2026-02-01T20:00:58Z","agent_id":"unknown","transcript_path":"","transcript_preview":""}

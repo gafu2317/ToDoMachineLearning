@@ -14,7 +14,7 @@ from src.evaluation.evaluator import SchedulerEvaluator
 from src.utils.task_loader import TaskDataLoader
 from src.environment.simulation import TaskSchedulingSimulation
 from src.utils.scheduler_factory import create_baseline_schedulers, create_rl_scheduler
-from src.visualization.schedule_gantt import generate_schedule_comparison
+from src.visualization.schedule_gantt import generate_schedule_comparison, generate_weekly_progression
 from config import DEFAULT_SIMULATION_CONFIG, EXPERIMENT_CONFIG
 
 
@@ -122,6 +122,26 @@ def main():
     gantt_path = f"{EXPERIMENT_CONFIG['output_dir']}/schedule_comparison_{timestamp}.png"
     generate_schedule_comparison(schedule_results, gantt_path)
     print(f"スケジュール比較グラフ: {gantt_path}")
+
+    # --- RL 週ごとの学習進行グラフ ---
+    # 事前学習済みモデルから開始し、learning_mode=Trueで3週連続実行
+    # Q-tableはweek間で継続し、隠れパラメータによる実際の時間変動を経験して学習していく
+    rl_weekly = create_rl_scheduler()
+    rl_weekly.set_learning_mode(True)
+
+    weekly_results = {}
+    for week in range(3):
+        week_task_index = (int(representative_exp_id) + week) % test_loader.get_num_datasets()
+        week_tasks = test_loader.load_tasks(week_task_index)
+
+        week_sim = TaskSchedulingSimulation(**DEFAULT_SIMULATION_CONFIG)
+        weekly_results[f"Week {week + 1}"] = week_sim.run_simulation_with_tasks(rl_weekly, week_tasks)
+        # reset()はエピソード状態のみリセット。Q-tableは継続する
+        rl_weekly.reset()
+
+    weekly_path = f"{EXPERIMENT_CONFIG['output_dir']}/weekly_progression_{timestamp}.png"
+    generate_weekly_progression(weekly_results, weekly_path)
+    print(f"週別学習進行グラフ: {weekly_path}")
 
     print(f"\n✅ 実験完了！結果は以下に保存されました:")
     print(f"  - 詳細データ: {csv_path}")

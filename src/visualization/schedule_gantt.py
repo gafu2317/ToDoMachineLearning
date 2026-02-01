@@ -265,3 +265,28 @@ def _draw_incomplete(ax: plt.Axes, result: Dict):
     ax.set_xlim(0, x_offset if x_offset > 0 else 1)
     ax.set_ylim(0, 1)
     ax.axis('off')
+
+
+def generate_weekly_progression(weekly_results: Dict[str, Dict], output_path: str):
+    """
+    RL スケジューラーの週ごとの学習進行を可視化する
+
+    Args:
+        weekly_results: キー = "Week 1" 等、値 = run_simulation_with_tasks() の戻り値
+        output_path: 出力画像パス
+    """
+    num_weeks = len(weekly_results)
+
+    fig = plt.figure(figsize=(7 * num_weeks, 10))
+    gs = fig.add_gridspec(2, num_weeks, height_ratios=[4, 1], hspace=0.35, wspace=0.3)
+
+    for col, (week_label, result) in enumerate(weekly_results.items()):
+        ax_gantt = fig.add_subplot(gs[0, col])
+        _draw_gantt(ax_gantt, week_label, result)
+
+        ax_inc = fig.add_subplot(gs[1, col])
+        _draw_incomplete(ax_inc, result)
+
+    fig.suptitle('RL Scheduler: Weekly Learning Progression', fontsize=14, fontweight='bold', y=1.02)
+    plt.savefig(output_path, dpi=100, bbox_inches='tight')
+    plt.close(fig)
