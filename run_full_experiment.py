@@ -131,20 +131,30 @@ def main():
     import matplotlib.pyplot as plt
 
     scheduler_names = ['deadline_scheduler', 'priority_scheduler', 'random_scheduler', 'rl_scheduler']
-    box_data = [results_df[results_df['scheduler_name'] == name]['total_score'].values for name in scheduler_names]
     box_colors = ['#4A90D9', '#E67E22', '#2ECC71', '#E74C3C']
+    labels = [n.replace('_scheduler', '') for n in scheduler_names]
 
-    fig, ax = plt.subplots(figsize=(10, 6))
-    bp = ax.boxplot(box_data, labels=[n.replace('_scheduler', '') for n in scheduler_names], patch_artist=True)
-    for patch, color in zip(bp['boxes'], box_colors):
-        patch.set_facecolor(color)
-        patch.set_alpha(0.7)
-    for median in bp['medians']:
-        median.set_color('black')
-        median.set_linewidth(2)
-    ax.set_ylabel('Score', fontsize=12)
-    ax.set_title('Scheduler Score Comparison', fontsize=14, fontweight='bold')
-    ax.grid(axis='y', linestyle=':', alpha=0.4)
+    metrics = [
+        ('total_score',      'Score'),
+        ('completion_rate',  'Completion Rate'),
+    ]
+
+    fig, axes = plt.subplots(1, len(metrics), figsize=(14, 5))
+    fig.suptitle('Scheduler Comparison', fontsize=14, fontweight='bold')
+
+    for ax, (col, ylabel) in zip(axes, metrics):
+        data = [results_df[results_df['scheduler_name'] == name][col].values for name in scheduler_names]
+        bp = ax.boxplot(data, tick_labels=labels, patch_artist=True)
+        for patch, color in zip(bp['boxes'], box_colors):
+            patch.set_facecolor(color)
+            patch.set_alpha(0.7)
+        for median in bp['medians']:
+            median.set_color('black')
+            median.set_linewidth(2)
+        ax.set_ylabel(ylabel, fontsize=11)
+        ax.set_title(ylabel, fontsize=11, fontweight='bold')
+        ax.grid(axis='y', linestyle=':', alpha=0.4)
+
     plt.tight_layout()
 
     boxplot_path = f"{run_dir}/score_boxplot.png"

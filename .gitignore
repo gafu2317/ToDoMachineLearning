@@ -32,12 +32,7 @@ wheels/
 .DS_Store
 
 # 実験結果・ログファイル（基本的に除外）
-results/detailed_logs/
-results/*.json
-results/*.csv
-results/*.png
-results/*.jpg
-results/*.pdf
+results/
 
 # 重要な最終結果のみ管理（必要に応じてコメント解除）
 # !results/final_experiment_results.json
