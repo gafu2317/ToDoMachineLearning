@@ -233,6 +233,108 @@ class TaskSchedulingSimulation:
         # 結果を計算
         return self._calculate_results(tasks_copy, completed_tasks, total_work_time, total_break_time, simulation_log)
     
+    def run_replay(self, planned_log: List[Dict], tasks: List[Task]) -> Dict[str, Any]:
+        """
+        Planned のタスク順番を固定して、隠しパラメータ付きで再実行する。
+        タスク選択順番は Planned と同じだが、実行時間は隠しパラメータに基づく。
+
+        Args:
+            planned_log: Planned シミュレーションの simulation_log
+            tasks: 隠しパラメータ付きのタスクリスト
+
+        Returns:
+            シミュレーション結果の辞書
+        """
+        from config import CONCENTRATION_CONFIG, BREAK_STRATEGY_CONFIG
+
+        tasks_copy = copy.deepcopy(tasks)
+
+        # Planned のタスク実行順番を抽出（work エントリーのみ）
+        planned_task_order = [entry['task_id'] for entry in planned_log if entry['action'] == 'work']
+        order_index = 0
+
+        # 集中力モデルと休憩閾値
+        concentration = ConcentrationModel(**CONCENTRATION_CONFIG)
+        break_threshold = BREAK_STRATEGY_CONFIG['threshold']
+        break_duration_minutes = CONCENTRATION_CONFIG['rest_recovery_minutes']
+
+        # タスクIDからタスクへのマップ
+        task_map = {task.id: task for task in tasks_copy}
+
+        current_time = self.start_time
+        completed_tasks = []
+        total_work_time = 0
+        total_break_time = 0
+        simulation_log = []
+
+        for current_day in range(self.simulation_days):
+            current_time = self.start_time + timedelta(days=current_day)
+            current_day_work_time = 0
+            concentration.reset()
+
+            while current_day_work_time < self.work_minutes_per_day:
+                remaining_time = self.work_minutes_per_day - current_day_work_time
+
+                # 休憩チェック
+                if concentration.current_level < break_threshold:
+                    concentration.rest(break_duration_minutes)
+                    total_break_time += break_duration_minutes
+                    current_time += timedelta(minutes=break_duration_minutes)
+                    current_day_work_time += break_duration_minutes
+                    simulation_log.append({
+                        'time': current_time.isoformat(),
+                        'action': 'break',
+                        'duration': break_duration_minutes
+                    })
+                    continue
+
+                # 予定順番から次の未完了タスクを探す
+                selected_task = None
+                while order_index < len(planned_task_order):
+                    target_id = planned_task_order[order_index]
+                    task = task_map.get(target_id)
+                    if task and not task.is_completed:
+                        selected_task = task
+                        break
+                    order_index += 1  # 既に完了済みなら次へ
+
+                if selected_task is None:
+                    break  # 予定のタスクが全て完了
+
+                # 残り時間チェック（base_durationで推測）
+                estimated_efficiency = concentration.get_efficiency_multiplier()
+                estimated_duration = selected_task.base_duration_minutes * estimated_efficiency
+                if estimated_duration > remaining_time:
+                    break  # 本日終了、明日に持ち越し
+
+                # タスク実行
+                concentration.apply_genre_switch_effect(selected_task.genre)
+                efficiency = concentration.work(selected_task.base_duration_minutes)
+                hidden_multiplier = getattr(selected_task, '_hidden_duration_multiplier', 1.0)
+                actual_duration = selected_task.base_duration_minutes * hidden_multiplier * efficiency
+
+                selected_task.is_completed = True
+                completed_tasks.append(selected_task)
+                total_work_time += actual_duration
+                current_time += timedelta(minutes=actual_duration)
+                current_day_work_time += actual_duration
+                order_index += 1
+
+                simulation_log.append({
+                    'time': current_time.isoformat(),
+                    'action': 'work',
+                    'task_id': selected_task.id,
+                    'duration': actual_duration,
+                    'base_duration': selected_task.base_duration_minutes,
+                    'completed': selected_task.is_completed,
+                    'concentration': concentration.current_level
+                })
+
+                if current_day_work_time >= self.work_minutes_per_day:
+                    break
+
+        return self._calculate_results(tasks_copy, completed_tasks, total_work_time, total_break_time, simulation_log)
+
     def _calculate_results(self,
                           all_tasks: List[Task],
                           completed_tasks: List[Task],

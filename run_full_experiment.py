@@ -120,9 +120,37 @@ def main():
         scheduler.reset()
         schedule_results[name] = simulation.run_simulation_with_tasks(scheduler, tasks)
 
-    gantt_path = f"{EXPERIMENT_CONFIG['output_dir']}/schedule_comparison_{timestamp}.png"
+    run_dir = f"{EXPERIMENT_CONFIG['output_dir']}/{timestamp}"
+    os.makedirs(run_dir, exist_ok=True)
+
+    gantt_path = f"{run_dir}/schedule_comparison.png"
     generate_schedule_comparison(schedule_results, gantt_path)
     print(f"スケジュール比較グラフ: {gantt_path}")
+
+    # --- 箱ひげ図生成 ---
+    import matplotlib.pyplot as plt
+
+    scheduler_names = ['deadline_scheduler', 'priority_scheduler', 'random_scheduler', 'rl_scheduler']
+    box_data = [results_df[results_df['scheduler_name'] == name]['total_score'].values for name in scheduler_names]
+    box_colors = ['#4A90D9', '#E67E22', '#2ECC71', '#E74C3C']
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    bp = ax.boxplot(box_data, labels=[n.replace('_scheduler', '') for n in scheduler_names], patch_artist=True)
+    for patch, color in zip(bp['boxes'], box_colors):
+        patch.set_facecolor(color)
+        patch.set_alpha(0.7)
+    for median in bp['medians']:
+        median.set_color('black')
+        median.set_linewidth(2)
+    ax.set_ylabel('Score', fontsize=12)
+    ax.set_title('Scheduler Score Comparison', fontsize=14, fontweight='bold')
+    ax.grid(axis='y', linestyle=':', alpha=0.4)
+    plt.tight_layout()
+
+    boxplot_path = f"{run_dir}/score_boxplot.png"
+    plt.savefig(boxplot_path, dpi=100, bbox_inches='tight')
+    plt.close(fig)
+    print(f"箱ひげ図: {boxplot_path}")
 
     # --- 3週間の可視化 ---
     # RL は1インスタンスで3週間を通じて学習を継続
@@ -131,7 +159,7 @@ def main():
 
     for week in range(3):
         week_num = week + 1
-        week_dir = f"{EXPERIMENT_CONFIG['output_dir']}/{timestamp}/week_{week_num}"
+        week_dir = f"{run_dir}/week_{week_num}"
         os.makedirs(week_dir, exist_ok=True)
 
         week_task_index = (int(representative_exp_id) + week) % test_loader.get_num_datasets()
@@ -149,14 +177,16 @@ def main():
         rl_weekly.set_learning_mode(False)
         planned_results["rl_scheduler"] = simulation.run_simulation_with_tasks(rl_weekly, clean_tasks)
 
-        # --- 実際スケジュール（隠しパラメータあり） ---
+        # --- 実際スケジュール（Planned の順番を固定、隠しパラメータで再実行） ---
         actual_results = {}
-        for name, scheduler in create_baseline_schedulers().items():
-            actual_results[name] = simulation.run_simulation_with_tasks(scheduler, hidden_tasks)
+        for name in planned_results:
+            actual_results[name] = simulation.run_replay(
+                planned_results[name]['simulation_log'], hidden_tasks
+            )
 
-        # RL 実際: 学習あり（Q-table更新）
+        # RL の Q-table 更新は独立実行（可視化には使わない）
         rl_weekly.set_learning_mode(True)
-        actual_results["rl_scheduler"] = simulation.run_simulation_with_tasks(rl_weekly, hidden_tasks)
+        simulation.run_simulation_with_tasks(rl_weekly, hidden_tasks)
 
         # --- 画像生成 ---
         # 1. planned_comparison.png
@@ -182,8 +212,9 @@ def main():
     print(f"  - レポート: {report_path}")
     print(f"  - 強化学習分析: {rl_analysis_path}")
     print(f"  - ガンツチャート: {gantt_path}")
+    print(f"  - 箱ひげ図: {boxplot_path}")
     for week_num in range(1, 4):
-        print(f"  - Week {week_num} 可視化: {EXPERIMENT_CONFIG['output_dir']}/{timestamp}/week_{week_num}/")
+        print(f"  - Week {week_num} 可視化: {run_dir}/week_{week_num}/")
 
 
 if __name__ == "__main__":
