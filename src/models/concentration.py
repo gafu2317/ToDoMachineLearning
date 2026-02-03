@@ -46,12 +46,13 @@ class ConcentrationModel:
         self.continuous_work_time = 0
         self.last_genre = None
         
-    def work(self, duration_minutes: int) -> float:
+    def work(self, duration_minutes: int, task_priority: int = 1) -> float:
         """
         作業により集中力を減少させる
 
         Args:
             duration_minutes: 作業時間（分）
+            task_priority: タスクの重要度（Priority.valueを渡す、デフォルト1）
 
         Returns:
             作業効率の倍率
@@ -62,10 +63,14 @@ class ConcentrationModel:
         if duration_minutes < 0:
             raise ValueError(f"作業時間は0以上である必要があります: {duration_minutes}")
 
-        # 作業による疲労で集中力低下
-        self.continuous_work_time += duration_minutes
+        # 重要度に応じた疲労係数を取得
+        priority_decay_multiplier = self._get_priority_decay_multiplier(task_priority)
 
-        # 集中力の減少（指数的に減衰、減衰係数を考慮）
+        # 作業による疲労で集中力低下（重要度を考慮）
+        effective_work_time = duration_minutes * priority_decay_multiplier
+        self.continuous_work_time += effective_work_time
+
+        # 集中力の減少（指数的に減衰、個人特性とタスク重要度の両方を考慮）
         fatigue_factor = np.exp(-self.decay_factor * self.continuous_work_time / self.max_work_time)
         self.current_level = self.initial_level * fatigue_factor
 
@@ -74,7 +79,20 @@ class ConcentrationModel:
         self.current_level = max(min_level, self.current_level)
 
         return self.get_efficiency_multiplier()
-    
+
+    def _get_priority_decay_multiplier(self, task_priority: int) -> float:
+        """
+        タスクの重要度に応じた疲労係数の倍率を返す
+
+        Args:
+            task_priority: Priority.value (1=LOW, 2=MEDIUM, 3=HIGH)
+
+        Returns:
+            疲労係数の倍率（1.0が基準）
+        """
+        from config import PRIORITY_FATIGUE_CONFIG
+        return PRIORITY_FATIGUE_CONFIG.get(task_priority, 1.0)
+
     def rest(self, duration_minutes: int = None):
         if duration_minutes is None:
             duration_minutes = self.rest_recovery

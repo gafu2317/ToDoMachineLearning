@@ -45,6 +45,15 @@ CONCENTRATION_SUSTAINABILITY_CONFIG = {
     }
 }
 
+# タスク重要度別の疲労係数設定
+# 重要度が高いほど集中力の低下が速くなる（疲れやすい）
+PRIORITY_FATIGUE_CONFIG = {
+    # Priority.value -> 疲労係数の倍率
+    1: 1.0,   # LOW: 標準の疲労度（ベースライン）
+    2: 1.3,   # MEDIUM: 1.3倍速く疲れる（30%増加）
+    3: 1.6,   # HIGH: 1.6倍速く疲れる（60%増加）
+}
+
 # 休憩戦略設定
 BREAK_STRATEGY_CONFIG = {
     'threshold': 0.4

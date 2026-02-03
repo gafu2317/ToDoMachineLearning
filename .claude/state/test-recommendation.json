@@ -1,6 +1,6 @@
 {
-  "timestamp": "2026-02-02T00:33:44Z",
-  "changed_file": "run_full_experiment.py",
+  "timestamp": "2026-02-03T21:12:25Z",
+  "changed_file": "tests/test_concentration.py",
   "test_command": "pytest",
   "related_test": "",
   "recommendation": "テストの実行を推奨します"
