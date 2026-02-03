@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updatedAt": "2026-02-03T21:39:50.699Z",
+  "updatedAt": "2026-02-03T21:43:58.085Z",
   "skills": {},
   "commands": {
     "rate-limit-options": {
@@ -14,8 +14,8 @@
       "lastUsed": "2026-02-03T21:39:50.699Z"
     },
     "Plan": {
-      "count": 6,
-      "lastUsed": "2026-02-03T21:04:41.511Z"
+      "count": 7,
+      "lastUsed": "2026-02-03T21:43:58.084Z"
     },
     "Bash": {
       "count": 2,

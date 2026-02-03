@@ -7,7 +7,7 @@
 DEFAULT_SIMULATION_CONFIG = {
     'simulation_days': 7,
     'work_hours_per_day': 8,
-    'num_tasks': 60  # スケジューラの差を見るために適度な負荷
+    'num_tasks': 40  # スケジューラの差を見るために適度な負荷
 }
 
 QUICK_TEST_CONFIG = {
@@ -82,8 +82,8 @@ RL_STATE_SPACE_CONFIG = {
     'deadline_bin_max': 10,           # 締切区間の最大値
 
     # 平均時間の離散化
-    'avg_duration_bin_minutes': 20,   # 平均時間を何分ごとに区間化するか
-    'avg_duration_bin_max': 5,        # 平均時間区間の最大値
+    'avg_duration_bin_minutes': 30,   # 平均時間を何分ごとに区間化するか
+    'avg_duration_bin_max': 7,        # 平均時間区間の最大値
 
     # 集中力レベルの離散化
     'concentration_bins': 4,          # 集中力レベルの区間数（0-4）
@@ -95,10 +95,10 @@ RL_STATE_SPACE_CONFIG = {
 # タスク生成設定
 TASK_GENERATION_CONFIG = {
     # タスク時間の範囲（分）
-    'short_task_min': 15,
-    'short_task_max': 60,
-    'medium_task_max': 120,
-    'long_task_max': 180,
+    'short_task_min': 30,
+    'short_task_max': 90,
+    'medium_task_max': 180,
+    'long_task_max': 270,
 
     # タスク時間分布（確率）
     'short_task_ratio': 0.7,  # 70%が短時間タスク
@@ -129,8 +129,8 @@ TASK_PRIORITY_THRESHOLDS = {
 # スケジューリング設定
 SCHEDULING_CONFIG = {
     # タスク時間の分類閾値（分）
-    'short_task_threshold': 90,
-    'medium_task_threshold': 120,
+    'short_task_threshold': 135,
+    'medium_task_threshold': 180,
 
     # 安全なタスク選択の閾値
     'safe_success_probability': 0.7,
