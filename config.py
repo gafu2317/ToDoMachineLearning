@@ -7,7 +7,7 @@
 DEFAULT_SIMULATION_CONFIG = {
     'simulation_days': 7,
     'work_hours_per_day': 8,
-    'num_tasks': 30  # スケジューラの差を見るために適度な負荷
+    'num_tasks': 40  # スケジューラの差を見るために適度な負荷
 }
 
 QUICK_TEST_CONFIG = {
@@ -123,7 +123,7 @@ TASK_PRIORITY_THRESHOLDS = {
     # Priority.value -> 必要集中力レベル
     1: 0.3,  # LOW: 30%以上で最適
     2: 0.6,  # MEDIUM: 60%以上で最適
-    3: 0.8,  # HIGH: 80%以上で最適
+    3: 0.6,  # HIGH: 60%以上で最適（緩和）
 }
 
 # スケジューリング設定
@@ -143,15 +143,15 @@ SCHEDULING_CONFIG = {
 RL_REWARD_CONFIG = {
     # ボーナス報酬
     'high_concentration_bonus': 20,
-    'high_priority_bonus': 30,
+    'high_priority_bonus': 150,  # HIGH優先度のボーナスを大幅に増加
 
     # ペナルティ
     'failure_time_penalty_multiplier': 0.5,
-    'reckless_attempt_penalty': 50,
+    'reckless_attempt_penalty': 20,  # 無謀ペナルティを緩和
 
     # ボーナス条件
     'high_concentration_threshold': 0.7,
-    'high_priority_threshold': 0.8,
+    'high_priority_threshold': 0.6,  # HIGH優先度ボーナスの閾値を緩和
     'reckless_concentration_threshold': 0.6,
 }
 

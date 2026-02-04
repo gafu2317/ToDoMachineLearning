@@ -103,3 +103,6 @@
 {"event":"subagent_stop","timestamp":"2026-02-04T04:21:53Z","agent_id":"unknown","transcript_path":"","transcript_preview":""}
 {"event":"subagent_stop","timestamp":"2026-02-04T04:35:16Z","agent_id":"unknown","transcript_path":"","transcript_preview":""}
 {"event":"subagent_stop","timestamp":"2026-02-04T04:38:11Z","agent_id":"unknown","transcript_path":"","transcript_preview":""}
+{"event":"subagent_stop","timestamp":"2026-02-04T04:41:27Z","agent_id":"unknown","transcript_path":"","transcript_preview":""}
+{"event":"subagent_stop","timestamp":"2026-02-04T04:43:35Z","agent_id":"unknown","transcript_path":"","transcript_preview":""}
+{"event":"subagent_stop","timestamp":"2026-02-04T04:52:02Z","agent_id":"unknown","transcript_path":"","transcript_preview":""}
