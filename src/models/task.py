@@ -33,16 +33,7 @@ class Task:
 
         config = TASK_GENERATION_CONFIG
 
-        # 時間分布: 短時間が多め
-        rand = random.random()
-        if rand < config['short_task_ratio']:
-            base_duration = random.randint(config['short_task_min'], config['short_task_max'])
-        elif rand < config['short_task_ratio'] + config['medium_task_ratio']:
-            base_duration = random.randint(config['short_task_max'], config['medium_task_max'])
-        else:
-            base_duration = random.randint(config['medium_task_max'], config['long_task_max'])
-
-        # 重要度分布: LOWが多め
+        # 先に重要度を決定
         rand = random.random()
         if rand < config['priority_low_ratio']:
             priority = Priority.LOW
@@ -50,6 +41,17 @@ class Task:
             priority = Priority.MEDIUM
         else:
             priority = Priority.HIGH
+
+        # 重要度に応じて時間範囲を決定
+        if priority == Priority.LOW:
+            # LOW: 短時間タスクが多い（30-120分）
+            base_duration = random.randint(30, 120)
+        elif priority == Priority.MEDIUM:
+            # MEDIUM: 中時間タスク（60-180分）
+            base_duration = random.randint(60, 180)
+        else:  # Priority.HIGH
+            # HIGH: 長時間タスク（120-270分）
+            base_duration = random.randint(120, 270)
 
         # 締切: 時間と重要度の両方を考慮（より余裕を持たせる）
         time_factor = base_duration / 60  # 時間の影響
