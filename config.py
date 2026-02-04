@@ -7,7 +7,7 @@
 DEFAULT_SIMULATION_CONFIG = {
     'simulation_days': 7,
     'work_hours_per_day': 8,
-    'num_tasks': 40  # スケジューラの差を見るために適度な負荷
+    'num_tasks': 30  # スケジューラの差を見るために適度な負荷
 }
 
 QUICK_TEST_CONFIG = {

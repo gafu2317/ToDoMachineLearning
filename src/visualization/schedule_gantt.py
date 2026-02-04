@@ -45,12 +45,29 @@ def generate_schedule_comparison(schedule_results: Dict[str, Dict], output_path:
     """
     num_schedulers = len(schedule_results)
 
+    # 全スケジューラーで共通のY軸範囲を計算
+    max_end_minutes = WORK_MINUTES_PER_DAY
+    for result in schedule_results.values():
+        for entry in result['simulation_log']:
+            end_time = datetime.fromisoformat(entry['time'])
+            duration = entry['duration']
+            start_time_dt = end_time - timedelta(minutes=duration)
+            day = (start_time_dt.date() - SIM_START.date()).days
+            if day < 0 or day > 6:
+                continue
+            day_9am = datetime(start_time_dt.year, start_time_dt.month, start_time_dt.day, 9, 0)
+            end_pos = (start_time_dt - day_9am).total_seconds() / 60.0 + duration
+            if end_pos > max_end_minutes:
+                max_end_minutes = end_pos
+    # 1時間単位に切り上げ（オーバーなければ480のまま）
+    y_max = WORK_MINUTES_PER_DAY if max_end_minutes <= WORK_MINUTES_PER_DAY else ((int(max_end_minutes) // 60) + 1) * 60
+
     fig = plt.figure(figsize=(22, 12))
     gs = fig.add_gridspec(2, num_schedulers, height_ratios=[4, 1], hspace=0.35, wspace=0.3)
 
     for col, (name, result) in enumerate(schedule_results.items()):
         ax_gantt = fig.add_subplot(gs[0, col])
-        _draw_gantt(ax_gantt, name, result)
+        _draw_gantt(ax_gantt, name, result, y_max=y_max)
 
         ax_inc = fig.add_subplot(gs[1, col])
         _draw_incomplete(ax_inc, result)
@@ -76,7 +93,7 @@ def _build_task_priority_map(result: Dict) -> Dict[int, str]:
     return priority_map
 
 
-def _draw_gantt(ax: plt.Axes, scheduler_name: str, result: Dict, title_suffix: str = None):
+def _draw_gantt(ax: plt.Axes, scheduler_name: str, result: Dict, title_suffix: str = None, y_max: int = None):
     """
     1つのガンツチャートを描画する
 
@@ -85,6 +102,7 @@ def _draw_gantt(ax: plt.Axes, scheduler_name: str, result: Dict, title_suffix: s
         scheduler_name: スケジューラー名
         result: シミュレーション結果
         title_suffix: タイトルに付加する文字列（例: "[Planned]"）
+        y_max: Y軸の最大値（分）。Noneの場合は自動計算
     """
     task_priority_map = _build_task_priority_map(result)
     simulation_log = result['simulation_log']
@@ -95,21 +113,23 @@ def _draw_gantt(ax: plt.Axes, scheduler_name: str, result: Dict, title_suffix: s
     total_score = result['total_score']
     incomplete_count = result['incomplete_tasks_count']
 
-    # 最大終了時刻を事前スキャン（隠しパラメータによる時間オーバーに対応）
-    max_end_minutes = WORK_MINUTES_PER_DAY
-    for entry in simulation_log:
-        end_time = datetime.fromisoformat(entry['time'])
-        duration = entry['duration']
-        start_time_dt = end_time - timedelta(minutes=duration)
-        day = (start_time_dt.date() - SIM_START.date()).days
-        if day < 0 or day > 6:
-            continue
-        day_9am = datetime(start_time_dt.year, start_time_dt.month, start_time_dt.day, 9, 0)
-        end_pos = (start_time_dt - day_9am).total_seconds() / 60.0 + duration
-        if end_pos > max_end_minutes:
-            max_end_minutes = end_pos
-    # 1時間単位に切り上げ（オーバーなければ480のまま）
-    y_max = WORK_MINUTES_PER_DAY if max_end_minutes <= WORK_MINUTES_PER_DAY else ((int(max_end_minutes) // 60) + 1) * 60
+    # Y軸の最大値が指定されていない場合は自動計算
+    if y_max is None:
+        # 最大終了時刻を事前スキャン（隠しパラメータによる時間オーバーに対応）
+        max_end_minutes = WORK_MINUTES_PER_DAY
+        for entry in simulation_log:
+            end_time = datetime.fromisoformat(entry['time'])
+            duration = entry['duration']
+            start_time_dt = end_time - timedelta(minutes=duration)
+            day = (start_time_dt.date() - SIM_START.date()).days
+            if day < 0 or day > 6:
+                continue
+            day_9am = datetime(start_time_dt.year, start_time_dt.month, start_time_dt.day, 9, 0)
+            end_pos = (start_time_dt - day_9am).total_seconds() / 60.0 + duration
+            if end_pos > max_end_minutes:
+                max_end_minutes = end_pos
+        # 1時間単位に切り上げ（オーバーなければ480のまま）
+        y_max = WORK_MINUTES_PER_DAY if max_end_minutes <= WORK_MINUTES_PER_DAY else ((int(max_end_minutes) // 60) + 1) * 60
 
     for entry in simulation_log:
         # 終了時刻をパース
@@ -306,12 +326,29 @@ def generate_weekly_progression(weekly_results: Dict[str, Dict], output_path: st
     """
     num_weeks = len(weekly_results)
 
+    # 全週で共通のY軸範囲を計算
+    max_end_minutes = WORK_MINUTES_PER_DAY
+    for result in weekly_results.values():
+        for entry in result['simulation_log']:
+            end_time = datetime.fromisoformat(entry['time'])
+            duration = entry['duration']
+            start_time_dt = end_time - timedelta(minutes=duration)
+            day = (start_time_dt.date() - SIM_START.date()).days
+            if day < 0 or day > 6:
+                continue
+            day_9am = datetime(start_time_dt.year, start_time_dt.month, start_time_dt.day, 9, 0)
+            end_pos = (start_time_dt - day_9am).total_seconds() / 60.0 + duration
+            if end_pos > max_end_minutes:
+                max_end_minutes = end_pos
+    # 1時間単位に切り上げ（オーバーなければ480のまま）
+    y_max = WORK_MINUTES_PER_DAY if max_end_minutes <= WORK_MINUTES_PER_DAY else ((int(max_end_minutes) // 60) + 1) * 60
+
     fig = plt.figure(figsize=(7 * num_weeks, 10))
     gs = fig.add_gridspec(2, num_weeks, height_ratios=[4, 1], hspace=0.35, wspace=0.3)
 
     for col, (week_label, result) in enumerate(weekly_results.items()):
         ax_gantt = fig.add_subplot(gs[0, col])
-        _draw_gantt(ax_gantt, week_label, result)
+        _draw_gantt(ax_gantt, week_label, result, y_max=y_max)
 
         ax_inc = fig.add_subplot(gs[1, col])
         _draw_incomplete(ax_inc, result)
@@ -331,19 +368,36 @@ def generate_planned_vs_actual(planned_result: Dict, actual_result: Dict, schedu
         scheduler_name: スケジューラー名
         output_path: 出力画像パス
     """
+    # PlannedとActualで共通のY軸範囲を計算
+    max_end_minutes = WORK_MINUTES_PER_DAY
+    for result in [planned_result, actual_result]:
+        for entry in result['simulation_log']:
+            end_time = datetime.fromisoformat(entry['time'])
+            duration = entry['duration']
+            start_time_dt = end_time - timedelta(minutes=duration)
+            day = (start_time_dt.date() - SIM_START.date()).days
+            if day < 0 or day > 6:
+                continue
+            day_9am = datetime(start_time_dt.year, start_time_dt.month, start_time_dt.day, 9, 0)
+            end_pos = (start_time_dt - day_9am).total_seconds() / 60.0 + duration
+            if end_pos > max_end_minutes:
+                max_end_minutes = end_pos
+    # 1時間単位に切り上げ（オーバーなければ480のまま）
+    y_max = WORK_MINUTES_PER_DAY if max_end_minutes <= WORK_MINUTES_PER_DAY else ((int(max_end_minutes) // 60) + 1) * 60
+
     fig = plt.figure(figsize=(22, 12))
     gs = fig.add_gridspec(2, 2, height_ratios=[4, 1], hspace=0.35, wspace=0.3)
 
     # 左カラム: Planned
     ax_gantt_p = fig.add_subplot(gs[0, 0])
-    _draw_gantt(ax_gantt_p, scheduler_name, planned_result, title_suffix="[Planned]")
+    _draw_gantt(ax_gantt_p, scheduler_name, planned_result, title_suffix="[Planned]", y_max=y_max)
 
     ax_inc_p = fig.add_subplot(gs[1, 0])
     _draw_incomplete(ax_inc_p, planned_result)
 
     # 右カラム: Actual
     ax_gantt_a = fig.add_subplot(gs[0, 1])
-    _draw_gantt(ax_gantt_a, scheduler_name, actual_result, title_suffix="[Actual]")
+    _draw_gantt(ax_gantt_a, scheduler_name, actual_result, title_suffix="[Actual]", y_max=y_max)
 
     ax_inc_a = fig.add_subplot(gs[1, 1])
     _draw_incomplete(ax_inc_a, actual_result)
