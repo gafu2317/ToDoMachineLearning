@@ -44,11 +44,11 @@ class Task:
 
         # 重要度に応じて時間範囲を決定
         if priority == Priority.LOW:
-            # LOW: 短時間タスクが多い（30-120分）
-            base_duration = random.randint(30, 120)
+            # LOW: 短時間タスク（30-75分）
+            base_duration = random.randint(30, 75)
         elif priority == Priority.MEDIUM:
-            # MEDIUM: 中時間タスク（60-180分）
-            base_duration = random.randint(60, 180)
+            # MEDIUM: 中時間タスク（60-135分）
+            base_duration = random.randint(60, 135)
         else:  # Priority.HIGH
             # HIGH: 長時間タスク（120-270分）
             base_duration = random.randint(120, 270)
