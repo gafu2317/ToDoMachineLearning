@@ -54,6 +54,13 @@ PRIORITY_FATIGUE_CONFIG = {
     3: 1.6,   # HIGH: 1.6倍速く疲れる（60%増加）
 }
 
+# 重要度連続作業ペナルティ設定
+# 同じ重要度（特にHIGH）のタスクを連続でやった場合の追加疲労
+PRIORITY_CONSECUTIVE_PENALTY = {
+    # Priority.value -> 連続作業時の追加疲労倍率
+    3: 1.3,  # HIGH連続: さらに1.3倍の疲労（合計1.6 × 1.3 = 2.08倍）
+}
+
 # 休憩戦略設定
 BREAK_STRATEGY_CONFIG = {
     'threshold': 0.4

@@ -37,14 +37,16 @@ class ConcentrationModel:
         sustainability_type = personal_config.get('concentration_sustainability', 'medium')
         self.decay_factor = CONCENTRATION_SUSTAINABILITY_CONFIG[sustainability_type]['decay_factor']
 
-        # 前回のジャンルを記憶
+        # 前回のジャンルと重要度を記憶
         self.last_genre = None
-        
+        self.last_priority = None
+
     def reset(self):
-        """毎朝のリセット時にジャンル履歴もクリア"""
+        """毎朝のリセット時にジャンル履歴と重要度履歴もクリア"""
         self.current_level = self.initial_level
         self.continuous_work_time = 0
         self.last_genre = None
+        self.last_priority = None
         
     def work(self, duration_minutes: int, task_priority: int = 1) -> float:
         """
@@ -66,7 +68,11 @@ class ConcentrationModel:
         # 重要度に応じた疲労係数を取得
         priority_decay_multiplier = self._get_priority_decay_multiplier(task_priority)
 
-        # 作業による疲労で集中力低下（重要度を考慮）
+        # 重要度連続作業ペナルティを適用
+        consecutive_penalty = self._get_consecutive_priority_penalty(task_priority)
+        priority_decay_multiplier *= consecutive_penalty
+
+        # 作業による疲労で集中力低下（重要度と連続作業を考慮）
         effective_work_time = duration_minutes * priority_decay_multiplier
         self.continuous_work_time += effective_work_time
 
@@ -77,6 +83,9 @@ class ConcentrationModel:
         # 最低値を制限
         min_level = CONCENTRATION_LIMITS['min_level']
         self.current_level = max(min_level, self.current_level)
+
+        # 現在の重要度を記憶
+        self.last_priority = task_priority
 
         return self.get_efficiency_multiplier()
 
@@ -92,6 +101,24 @@ class ConcentrationModel:
         """
         from config import PRIORITY_FATIGUE_CONFIG
         return PRIORITY_FATIGUE_CONFIG.get(task_priority, 1.0)
+
+    def _get_consecutive_priority_penalty(self, task_priority: int) -> float:
+        """
+        同じ重要度のタスクを連続で実行した場合の追加疲労倍率を返す
+
+        Args:
+            task_priority: Priority.value (1=LOW, 2=MEDIUM, 3=HIGH)
+
+        Returns:
+            連続作業時の追加疲労倍率（1.0が基準、連続HIGHの場合は1.3など）
+        """
+        # 最初のタスクまたは前回と異なる重要度の場合はペナルティなし
+        if self.last_priority is None or self.last_priority != task_priority:
+            return 1.0
+
+        # 連続して同じ重要度のタスクを実行する場合
+        from config import PRIORITY_CONSECUTIVE_PENALTY
+        return PRIORITY_CONSECUTIVE_PENALTY.get(task_priority, 1.0)
 
     def rest(self, duration_minutes: int = None):
         if duration_minutes is None:
