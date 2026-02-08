@@ -7,7 +7,7 @@
 DEFAULT_SIMULATION_CONFIG = {
     'simulation_days': 7,
     'work_hours_per_day': 8,
-    'num_tasks': 40  # スケジューラの差を見るために適度な負荷
+    'num_tasks': 60  # スケジューラの差を見るために適度な負荷
 }
 
 QUICK_TEST_CONFIG = {
@@ -66,10 +66,16 @@ BREAK_STRATEGY_CONFIG = {
     'threshold': 0.4
 }
 
+# 残り時間の安全マージン設定
+# タスク実行中の集中力低下を考慮して、残り時間より余裕を持ってタスクを選択する
+TIME_MARGIN_CONFIG = {
+    'safety_factor': 0.85  # 残り時間の85%までのタスクを選択（15%のマージン）
+}
+
 # 強化学習設定
 RL_CONFIG = {
-    'learning_rate': 0.1,
-    'discount_factor': 0.9,
+    'learning_rate': 0.05,      # 0.1 → 0.05（学習を安定化）
+    'discount_factor': 0.95,    # 0.9 → 0.95（長期的な計画を重視）
     'epsilon': 0.1
 }
 
@@ -77,26 +83,29 @@ RL_CONFIG = {
 # 警告: これらの値を変更すると、既存の学習済みQ-tableと互換性がなくなる可能性があります。
 # 変更後は必ずtrain_rl_model.pyを再実行してモデルを再学習してください。
 RL_STATE_SPACE_CONFIG = {
-    # タスク数の離散化
-    'num_tasks_bin_divisor': 10,      # タスク数を何個ずつの区間に分けるか
-    'num_tasks_bin_max': 10,          # タスク数区間の最大値
+    # タスク数の離散化（粗く）
+    'num_tasks_bin_divisor': 15,      # 10 → 15（区間を減らす）
+    'num_tasks_bin_max': 5,           # 10 → 5（区間を減らす）
 
-    # 重要度比率の離散化
-    'high_priority_ratio_bins': 5,    # 重要度比率の区間数（0-5）
+    # 重要度比率の離散化（粗く）
+    'high_priority_ratio_bins': 3,    # 5 → 3（区間を減らす）
 
-    # 締切の離散化
-    'deadline_bin_hours': 12,         # 締切を何時間ごとに区間化するか
-    'deadline_bin_max': 10,           # 締切区間の最大値
+    # 締切の離散化（粗く）
+    'deadline_bin_hours': 24,         # 12 → 24（区間を減らす）
+    'deadline_bin_max': 5,            # 10 → 5（区間を減らす）
 
-    # 平均時間の離散化
-    'avg_duration_bin_minutes': 30,   # 平均時間を何分ごとに区間化するか
-    'avg_duration_bin_max': 7,        # 平均時間区間の最大値
+    # 平均時間の離散化（粗く）
+    'avg_duration_bin_minutes': 60,   # 30 → 60（区間を減らす）
+    'avg_duration_bin_max': 4,        # 7 → 4（区間を減らす）
 
     # 集中力レベルの離散化
-    'concentration_bins': 4,          # 集中力レベルの区間数（0-4）
+    'concentration_bins': 3,          # 4 → 3（区間を減らす）
 
-    # 疲労蓄積度の離散化（新規追加）
-    'fatigue_bins': 5,                # 疲労蓄積度の区間数（0-5）
+    # 疲労蓄積度の離散化（粗く）
+    'fatigue_bins': 3,                # 5 → 3（区間を減らす）
+
+    # 残り日数の離散化（削除して簡略化）
+    'remaining_days_bins': 5,         # 8 → 5（区間を減らす）
 }
 
 # タスク生成設定
@@ -146,20 +155,32 @@ SCHEDULING_CONFIG = {
     'seconds_per_day': 86400,
 }
 
-# 強化学習報酬設定
+# 強化学習報酬設定（バランスを改善）
 RL_REWARD_CONFIG = {
-    # ボーナス報酬
-    'high_concentration_bonus': 20,
-    'high_priority_bonus': 150,  # HIGH優先度のボーナスを大幅に増加
+    # ボーナス報酬（スケールを統一）
+    'high_concentration_bonus': 50,       # 20 → 50（集中力の重要性を強調）
+    'high_priority_bonus': 100,           # 500 → 100（過度な偏りを防ぐ）
 
-    # ペナルティ
-    'failure_time_penalty_multiplier': 0.5,
-    'reckless_attempt_penalty': 20,  # 無謀ペナルティを緩和
+    # 締切関連の報酬/ペナルティ（新規追加）
+    'deadline_met_bonus': 50,             # 締切を守った場合のボーナス
+    'deadline_violated_penalty': 200,     # 締切を破った場合のペナルティ
+    'early_completion_margin_bonus': 30,  # 締切より余裕を持って完了した場合
+
+    # 効率性ペナルティ
+    'time_inefficiency_penalty': 1.0,     # 0.5 → 1.0（時間効率を重視）
+    'reckless_attempt_penalty': 80,       # 20 → 80（無謀な選択を抑止）
 
     # ボーナス条件
     'high_concentration_threshold': 0.7,
-    'high_priority_threshold': 0.6,  # HIGH優先度ボーナスの閾値を緩和
+    'high_priority_threshold': 0.6,
     'reckless_concentration_threshold': 0.6,
+    'early_margin_threshold_hours': 24,   # 締切の24時間前完了で早期ボーナス
+
+    # 長時間タスクの早期完了促進（調整）
+    'early_completion_bonus': 80,         # 100 → 80
+    'mid_completion_bonus': 40,           # 50 → 40
+    'late_selection_penalty': 60,         # 50 → 60
+    'long_task_threshold': 180,           # 長時間タスクの閾値（分）
 }
 
 # 集中力モデル追加設定
@@ -186,6 +207,6 @@ RL_LEARNING_MODE_CONFIG = {
     'train_epsilon': 0.5,
     'test_epsilon': 0.0,
     'enable_learning': True,
-    'epsilon_decay_rate': 0.995,   # 1エピソードごとの減衰率
+    'epsilon_decay_rate': 0.9995,  # 0.995 → 0.9995（減衰を緩やかに）
     'min_epsilon': 0.05,           # epsilonの下限
 }

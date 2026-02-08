@@ -1,0 +1,37 @@
+{
+  "session_id": "B759068B-4F6A-4687-ABC2-CB7EDE9AA087",
+  "parent_session_id": null,
+  "state": "stopped",
+  "state_version": 1,
+  "started_at": "2026-02-08T11:23:26Z",
+  "updated_at": "2026-02-08T11:23:34Z",
+  "resume_token": "772621A8-E9AD-4651-95BA-07C2F4199287",
+  "event_seq": 2,
+  "last_event_id": "event-000002",
+  "fork_count": 0,
+  "orchestration": {
+    "max_state_retries": 3,
+    "retry_backoff_seconds": 10
+  },
+  "cwd": "/Users/fukutomi/Library/CloudStorage/OneDrive-NITech/programming/universityLecture/intEX2/Group/ToDoMachineLearning",
+  "project_name": "ToDoMachineLearning",
+  "prompt_seq": 1,
+  "git": {
+    "branch": "main",
+    "uncommitted_changes": 28,
+    "last_commit": "f36ca38"
+  },
+  "plans": {
+    "exists": false,
+    "last_modified": 0,
+    "wip_tasks": 0,
+    "todo_tasks": 0,
+    "pending_tasks": 0,
+    "completed_tasks": 0
+  },
+  "changes_this_session": [],
+  "intent": "literal",
+  "ended_at": "2026-02-08T11:23:34Z",
+  "duration_minutes": 540,
+  "memory_logged": true
+}

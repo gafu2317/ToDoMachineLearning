@@ -134,9 +134,9 @@ class ConcentrationModel:
     
     def get_efficiency_multiplier(self) -> float:
         if self.current_level >= 0.7:
-            return 0.8  # 高集中時: 20%効率アップ
+            return 0.6  # 高集中時: 40%効率アップ
         elif self.current_level <= 0.4:
-            return 1.2  # 低集中時: 20%効率ダウン
+            return 1.4  # 低集中時: 40%効率ダウン
         else:
             return 1.0  # 通常時
     

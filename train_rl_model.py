@@ -26,8 +26,8 @@ def main():
     # タスクローダーを作成（学習用）
     train_loader = TaskDataLoader(dataset_type='train')
 
-    # 学習エピソード数（改良版なので増やす）
-    num_episodes = 5000
+    # 学習エピソード数（パラメータ調整後なので増やす）
+    num_episodes = 10000
 
     # シミュレーション環境を作成
     simulation = TaskSchedulingSimulation(**DEFAULT_SIMULATION_CONFIG)
@@ -35,7 +35,7 @@ def main():
     print(f"\nシミュレーション設定:")
     print(f"  - 期間: {simulation.simulation_days}日間")
     print(f"  - 1日の作業時間: {simulation.work_hours_per_day}時間")
-    print(f"  - タスク数: 60個（固定）")
+    print(f"  - タスク数: {simulation.num_tasks}個")
     print(f"  - 学習データセット: {train_loader.get_num_datasets()}セット")
 
     # 強化学習スケジューラーを作成（学習モードで）

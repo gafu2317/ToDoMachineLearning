@@ -44,19 +44,17 @@ class Task:
 
         # 重要度に応じて時間範囲を決定
         if priority == Priority.LOW:
-            # LOW: 短時間タスク（30-75分）
-            base_duration = random.randint(30, 75)
+            # LOW: 短時間タスク（20-40分）
+            base_duration = random.randint(20, 40)
         elif priority == Priority.MEDIUM:
-            # MEDIUM: 中時間タスク（60-135分）
-            base_duration = random.randint(60, 135)
+            # MEDIUM: 中時間タスク（40-80分）
+            base_duration = random.randint(40, 80)
         else:  # Priority.HIGH
-            # HIGH: 長時間タスク（120-270分）
-            base_duration = random.randint(120, 270)
+            # HIGH: 長時間タスク（80-160分）
+            base_duration = random.randint(80, 160)
 
-        # 締切: 時間と重要度の両方を考慮（より余裕を持たせる）
-        time_factor = base_duration / 60  # 時間の影響
-        priority_factor = priority.value  # 重要度の影響
-        base_days = 3 + time_factor * 2 + priority_factor * 2  # 締切を緩和（5～13日後）
+        # 締切: Day 2-7の間で均等に分散（優先度に関係なく）
+        base_days = random.uniform(2.0, 7.0)
         deadline = current_time + timedelta(days=base_days)
 
         # ジャンルをランダムに割り当て

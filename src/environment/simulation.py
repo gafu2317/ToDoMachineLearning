@@ -90,9 +90,14 @@ class TaskSchedulingSimulation:
         """
         # タスクリストをディープコピーして、元のタスクに影響しないようにする
         tasks_copy = copy.deepcopy(tasks)
-        
+
         # 初期化
         scheduler.reset()
+
+        # RLLearningSchedulerの場合、シミュレーション設定を渡す
+        if hasattr(scheduler, 'set_simulation_config'):
+            scheduler.set_simulation_config(self.start_time, self.simulation_days)
+
         current_time = self.start_time
         current_day = 0
         current_day_work_time = 0
@@ -118,12 +123,21 @@ class TaskSchedulingSimulation:
                 # 次のタスクを選択
                 selected_task = scheduler.select_next_task(tasks_copy, current_time)
 
-                # タスクが選択された場合、残り時間内に収まるかチェック
+                # タスクが選択された場合、残り時間に収まるかチェック
                 if selected_task is not None:
-                    # 現在の集中力レベルでの所要時間を見積もる
-                    estimated_efficiency = scheduler.concentration_model.get_efficiency_multiplier()
-                    estimated_duration = selected_task.base_duration_minutes * estimated_efficiency
-                    if estimated_duration > remaining_time:
+                    # 残り時間に収まるかチェック（効率を考慮）
+                    efficiency = scheduler.concentration_model.get_efficiency_multiplier()
+                    # efficiency: 0.6なら0.6倍、1.4なら1.4倍の時間がかかる
+                    # 保守的に見積もる（高集中時は標準速度1.0、低集中時はそのまま）
+                    conservative_efficiency = max(efficiency, 1.0)
+                    estimated_duration = selected_task.base_duration_minutes / conservative_efficiency
+
+                    # 安全マージンを適用
+                    from config import TIME_MARGIN_CONFIG
+                    safety_factor = TIME_MARGIN_CONFIG['safety_factor']
+                    safe_remaining_time = remaining_time * safety_factor
+
+                    if estimated_duration > safe_remaining_time:
                         # 残り時間に収まらないので、このタスクはスキップ
                         selected_task = None
 
@@ -134,7 +148,7 @@ class TaskSchedulingSimulation:
                         total_break_time += break_duration
                         current_time += timedelta(minutes=break_duration)
                         current_day_work_time += break_duration
-                        
+
                         simulation_log.append({
                             'time': current_time.isoformat(),
                             'action': 'break',
@@ -307,7 +321,7 @@ class TaskSchedulingSimulation:
             'tasks': {
                 'total': len(all_tasks),
                 'completed': [{'id': t.id, 'score': t.get_score(), 'priority': t.priority.name} for t in completed_tasks],
-                'incomplete': [{'id': t.id, 'score': t.get_score(), 'priority': t.priority.name} for t in incomplete_tasks]
+                'incomplete': [{'id': t.id, 'score': t.get_score(), 'priority': t.priority.name, 'deadline': t.deadline.isoformat(), 'is_overdue': t.is_overdue(self.start_time + timedelta(days=self.simulation_days))} for t in incomplete_tasks]
             },
             'simulation_log': simulation_log
         }

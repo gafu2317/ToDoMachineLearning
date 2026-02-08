@@ -24,11 +24,11 @@ def generate_dataset(num_train: int = 8000, num_test: int = 2000):
     os.makedirs("dataset/train", exist_ok=True)
     os.makedirs("dataset/test", exist_ok=True)
 
-    # シミュレーション環境（タスク数を40個に固定）
+    # シミュレーション環境（config.pyの設定を使用）
     sim = TaskSchedulingSimulation(
-        simulation_days=7,
-        work_hours_per_day=8,
-        num_tasks=40  # 固定値 - すべてのデータセットで統一
+        simulation_days=DEFAULT_SIMULATION_CONFIG['simulation_days'],
+        work_hours_per_day=DEFAULT_SIMULATION_CONFIG['work_hours_per_day'],
+        num_tasks=DEFAULT_SIMULATION_CONFIG['num_tasks']
     )
 
     # 学習用データ生成

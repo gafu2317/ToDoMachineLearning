@@ -269,31 +269,58 @@ class PolicyBasedQLearningSelector(TaskSelector):
                         current_time: datetime,
                         concentration_level: float,
                         actual_duration: float = None) -> float:
-        """報酬を計算（時間効率ベース）"""
+        """報酬を計算（バランス改善版）"""
         config = RL_REWARD_CONFIG
+        from datetime import timedelta
 
         # 基本完了報酬（スコアベース）
         reward = task.get_score()
 
-        # 高集中完了ボーナス（効率的に作業できた）
+        # 1. 締切遵守/違反の報酬/ペナルティ
+        if completed:
+            estimated_completion = current_time + timedelta(minutes=actual_duration if actual_duration else task.base_duration_minutes)
+
+            if estimated_completion <= task.deadline:
+                # 締切を守った
+                reward += config['deadline_met_bonus']
+
+                # 早期完了マージンボーナス（締切より余裕を持って完了）
+                margin_hours = (task.deadline - estimated_completion).total_seconds() / 3600
+                if margin_hours >= config['early_margin_threshold_hours']:
+                    reward += config['early_completion_margin_bonus']
+            else:
+                # 締切を破った（大きなペナルティ）
+                reward -= config['deadline_violated_penalty']
+
+        # 2. 高集中完了ボーナス（効率的に作業できた）
         if concentration_level > config['high_concentration_threshold']:
             reward += config['high_concentration_bonus']
 
-        # 高優先度ボーナス（高優先度タスクを高集中で完了した場合）
+        # 3. 高優先度ボーナス（高優先度タスクを高集中で完了した場合）
         if task.priority == Priority.HIGH and concentration_level >= config['high_priority_threshold']:
             reward += config['high_priority_bonus']
 
-        # 効率ペナルティ（集中力不足で時間がかかった場合）
+        # 4. 効率ペナルティ（集中力不足で時間がかかった場合）
         if actual_duration and actual_duration > task.base_duration_minutes:
-            # 余分にかかった時間分をペナルティ
             extra_time = actual_duration - task.base_duration_minutes
-            reward -= extra_time * 0.5
+            reward -= extra_time * config['time_inefficiency_penalty']
 
-        # 集中力が足りないのに高優先度タスクを選んだ場合はペナルティ
+        # 5. 無謀な選択ペナルティ（集中力が足りないのに難しいタスクを選んだ）
         from config import TASK_PRIORITY_THRESHOLDS
         required = TASK_PRIORITY_THRESHOLDS.get(task.priority.value, 0.5)
         if concentration_level < required:
             reward -= config['reckless_attempt_penalty']
+
+        # 6. 長時間タスクの早期完了促進（既存のロジックを維持）
+        if task.base_duration_minutes >= config['long_task_threshold']:
+            days_from_start = (current_time - task.created_at).days if hasattr(task, 'created_at') else 0
+
+            if days_from_start <= 3:
+                reward += config['early_completion_bonus']
+            elif days_from_start <= 5:
+                reward += config['mid_completion_bonus']
+            elif days_from_start >= 6:
+                reward -= config['late_selection_penalty']
 
         return reward
 

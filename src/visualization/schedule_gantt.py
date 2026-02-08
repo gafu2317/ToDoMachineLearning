@@ -242,6 +242,7 @@ def _draw_gantt(ax: plt.Axes, scheduler_name: str, result: Dict, title_suffix: s
 def _draw_incomplete(ax: plt.Axes, result: Dict):
     """
     未完了タスクの水平スタックバルグラフを描画する
+    締切オーバーのタスクは赤枠とハッチングで強調表示
 
     Args:
         ax: matplotlib Axes
@@ -256,14 +257,19 @@ def _draw_incomplete(ax: plt.Axes, result: Dict):
 
     # 各タスクのdurationを復元: base_duration = score / priority_value
     tasks_with_dur = []
+    overdue_count = 0
     for task_info in incomplete_list:
         priority = task_info['priority']
         pval = PRIORITY_VALUES.get(priority, 1)
         duration = task_info['score'] / pval
+        is_overdue = task_info.get('is_overdue', False)
+        if is_overdue:
+            overdue_count += 1
         tasks_with_dur.append({
             'id': task_info['id'],
             'priority': priority,
             'duration': duration,
+            'is_overdue': is_overdue,
         })
 
     # HIGH → MEDIUM → LOW の順にソート
@@ -273,9 +279,12 @@ def _draw_incomplete(ax: plt.Axes, result: Dict):
     total_min = sum(t['duration'] for t in tasks_with_dur)
     num_incomplete = len(tasks_with_dur)
 
-    # タイトル
+    # タイトル（締切オーバー数も表示）
+    title_text = f"Incomplete: {num_incomplete} tasks ({int(total_min)}min)"
+    if overdue_count > 0:
+        title_text += f" | Overdue: {overdue_count} tasks"
     ax.set_title(
-        f"Incomplete: {num_incomplete} tasks ({int(total_min)}min)",
+        title_text,
         fontsize=9,
         fontweight='bold'
     )
@@ -285,15 +294,29 @@ def _draw_incomplete(ax: plt.Axes, result: Dict):
     for task in tasks_with_dur:
         color = PRIORITY_COLORS.get(task['priority'], COLOR_LOW)
         dur = task['duration']
+        is_overdue = task['is_overdue']
 
-        rect = Rectangle(
-            (x_offset, 0.2),
-            dur,
-            0.6,
-            facecolor=color,
-            edgecolor='black',
-            linewidth=0.5
-        )
+        # 締切オーバーの場合は赤枠とハッチング
+        if is_overdue:
+            rect = Rectangle(
+                (x_offset, 0.2),
+                dur,
+                0.6,
+                facecolor=color,
+                edgecolor='darkred',
+                linewidth=2.0,
+                hatch='///',
+                alpha=0.8
+            )
+        else:
+            rect = Rectangle(
+                (x_offset, 0.2),
+                dur,
+                0.6,
+                facecolor=color,
+                edgecolor='black',
+                linewidth=0.5
+            )
         ax.add_patch(rect)
 
         # ラベル（幅が狭ければ非表示）

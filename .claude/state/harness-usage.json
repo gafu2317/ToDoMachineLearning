@@ -1,26 +1,14 @@
 {
   "version": "1.0",
-  "updatedAt": "2026-02-04T05:20:26.913Z",
+  "updatedAt": "2026-02-08T11:23:26.752Z",
   "skills": {},
-  "commands": {
-    "rate-limit-options": {
-      "count": 357,
-      "lastUsed": "2026-02-04T05:20:26.912Z"
+  "commands": {},
+  "agents": {},
+  "hooks": {
+    "session-init": {
+      "triggered": 2,
+      "blocked": 0,
+      "lastTriggered": "2026-02-08T11:23:26.751Z"
     }
-  },
-  "agents": {
-    "Explore": {
-      "count": 14,
-      "lastUsed": "2026-02-03T21:39:50.699Z"
-    },
-    "Plan": {
-      "count": 7,
-      "lastUsed": "2026-02-03T21:43:58.084Z"
-    },
-    "Bash": {
-      "count": 2,
-      "lastUsed": "2026-02-01T13:32:29.209Z"
-    }
-  },
-  "hooks": {}
+  }
 }
