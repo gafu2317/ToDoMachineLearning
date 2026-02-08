@@ -13,9 +13,9 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from src.evaluation.evaluator import SchedulerEvaluator
 from src.utils.task_loader import TaskDataLoader
-from src.environment.simulation import TaskSchedulingSimulation, attach_hidden_params
+from src.environment.simulation import TaskSchedulingSimulation
 from src.utils.scheduler_factory import create_baseline_schedulers, create_rl_scheduler
-from src.visualization.schedule_gantt import generate_schedule_comparison, generate_planned_vs_actual
+from src.visualization.schedule_gantt import generate_schedule_comparison
 from config import DEFAULT_SIMULATION_CONFIG, EXPERIMENT_CONFIG
 
 
@@ -35,23 +35,24 @@ def main():
 
     print("実験実行中... (強化学習含むため時間がかかります)")
     results_df = evaluator.run_experiments()
-    
+
     # 結果を保存
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    
+    run_dir = f"{EXPERIMENT_CONFIG['output_dir']}/{timestamp}"
+    os.makedirs(run_dir, exist_ok=True)
+
     # CSVファイルに詳細データを保存
-    csv_path = f"{EXPERIMENT_CONFIG['output_dir']}/full_experiment_results_{timestamp}.csv"
-    os.makedirs(EXPERIMENT_CONFIG['output_dir'], exist_ok=True)
+    csv_path = f"{run_dir}/full_experiment_results.csv"
     results_df.to_csv(csv_path, index=False, encoding='utf-8')
     print(f"詳細データを保存: {csv_path}")
-    
+
     # レポートを生成・保存
-    report_path = f"{EXPERIMENT_CONFIG['output_dir']}/full_experiment_report_{timestamp}.md"
+    report_path = f"{run_dir}/full_experiment_report.md"
     report = evaluator.generate_report(results_df, save_path=report_path)
     print(f"レポートを保存: {report_path}")
-    
+
     # 強化学習の詳細分析
-    rl_analysis_path = f"{EXPERIMENT_CONFIG['output_dir']}/rl_analysis_{timestamp}.txt"
+    rl_analysis_path = f"{run_dir}/rl_analysis.txt"
     with open(rl_analysis_path, 'w', encoding='utf-8') as f:
         f.write("# 強化学習スケジューラー詳細分析\n\n")
         
@@ -120,9 +121,6 @@ def main():
         scheduler.reset()
         schedule_results[name] = simulation.run_simulation_with_tasks(scheduler, tasks)
 
-    run_dir = f"{EXPERIMENT_CONFIG['output_dir']}/{timestamp}"
-    os.makedirs(run_dir, exist_ok=True)
-
     gantt_path = f"{run_dir}/schedule_comparison.png"
     generate_schedule_comparison(schedule_results, gantt_path)
     print(f"スケジュール比較グラフ: {gantt_path}")
@@ -162,69 +160,12 @@ def main():
     plt.close(fig)
     print(f"箱ひげ図: {boxplot_path}")
 
-    # --- 3週間の可視化 ---
-    # RL は1インスタンスで3週間を通じて学習を継続
-    # Week N: 予定実行(学習なし) → 実際実行(学習あり) → Q-table更新
-    rl_weekly = create_rl_scheduler()
-
-    for week in range(3):
-        week_num = week + 1
-        week_dir = f"{run_dir}/week_{week_num}"
-        os.makedirs(week_dir, exist_ok=True)
-
-        week_task_index = (int(representative_exp_id) + week) % test_loader.get_num_datasets()
-        clean_tasks = test_loader.load_tasks(week_task_index)
-        hidden_tasks = attach_hidden_params(copy.deepcopy(clean_tasks))
-
-        simulation = TaskSchedulingSimulation(**DEFAULT_SIMULATION_CONFIG)
-
-        # --- 予定スケジュール（隠しパラメータなし） ---
-        planned_results = {}
-        for name, scheduler in create_baseline_schedulers().items():
-            planned_results[name] = simulation.run_simulation_with_tasks(scheduler, clean_tasks)
-
-        # RL 予定: 学習なし
-        rl_weekly.set_learning_mode(False)
-        planned_results["rl_scheduler"] = simulation.run_simulation_with_tasks(rl_weekly, clean_tasks)
-
-        # --- 実際スケジュール（Planned の順番を固定、隠しパラメータで再実行） ---
-        actual_results = {}
-        for name in planned_results:
-            actual_results[name] = simulation.run_replay(
-                planned_results[name]['simulation_log'], hidden_tasks
-            )
-
-        # RL の Q-table 更新は独立実行（可視化には使わない）
-        rl_weekly.set_learning_mode(True)
-        simulation.run_simulation_with_tasks(rl_weekly, hidden_tasks)
-
-        # --- 画像生成 ---
-        # 1. planned_comparison.png
-        generate_schedule_comparison(
-            planned_results,
-            f"{week_dir}/planned_comparison.png",
-            fig_title=f"Week {week_num}: Planned Schedule Comparison"
-        )
-
-        # 2-5. planned_vs_actual per scheduler
-        for sched_name in ["deadline_scheduler", "priority_scheduler", "random_scheduler", "rl_scheduler"]:
-            generate_planned_vs_actual(
-                planned_results[sched_name],
-                actual_results[sched_name],
-                sched_name,
-                f"{week_dir}/planned_vs_actual_{sched_name}.png"
-            )
-
-        print(f"Week {week_num} 画像生成完了: {week_dir}")
-
     print(f"\n✅ 実験完了！結果は以下に保存されました:")
     print(f"  - 詳細データ: {csv_path}")
     print(f"  - レポート: {report_path}")
     print(f"  - 強化学習分析: {rl_analysis_path}")
     print(f"  - ガンツチャート: {gantt_path}")
     print(f"  - 箱ひげ図: {boxplot_path}")
-    for week_num in range(1, 4):
-        print(f"  - Week {week_num} 可視化: {run_dir}/week_{week_num}/")
 
 
 if __name__ == "__main__":

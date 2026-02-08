@@ -8,37 +8,6 @@ from ..schedulers.scheduler import Scheduler
 from config import TASK_GENERATION_CONFIG
 
 
-def attach_hidden_params(tasks: List[Task]) -> List[Task]:
-    """読み込んだタスクリストに隠しパラメータを付与する"""
-    from config import HIDDEN_PARAMETERS_CONFIG, GENRE_CONFIG
-    hidden_config = HIDDEN_PARAMETERS_CONFIG
-
-    # ジャンル適性をランダムに生成
-    genre_affinities = {}
-    if hidden_config['genre_affinity']['enabled']:
-        for genre in GENRE_CONFIG['genres']:
-            min_eff, max_eff = hidden_config['genre_affinity']['affinity_range']
-            genre_affinities[genre] = random.uniform(min_eff, max_eff)
-
-    for task in tasks:
-        if hidden_config['enabled']:
-            # 時間変動率
-            variance_config = hidden_config['task_duration_variance']
-            task._hidden_duration_multiplier = random.gauss(
-                variance_config['mean'],
-                variance_config['std']
-            )
-            task._hidden_duration_multiplier = max(
-                variance_config['min_multiplier'],
-                min(variance_config['max_multiplier'], task._hidden_duration_multiplier)
-            )
-            # ジャンル適性
-            task._hidden_genre_affinity = genre_affinities.get(task.genre, 0.0)
-        else:
-            task._hidden_duration_multiplier = 1.0
-            task._hidden_genre_affinity = 0.0
-
-    return tasks
 
 
 class TaskSchedulingSimulation:
@@ -62,41 +31,11 @@ class TaskSchedulingSimulation:
         
     def generate_tasks(self) -> List[Task]:
         """バランスの取れたタスクセットを生成する"""
-        from config import HIDDEN_PARAMETERS_CONFIG, GENRE_CONFIG
-        hidden_config = HIDDEN_PARAMETERS_CONFIG
-
-        # ジャンル適性をランダムに生成
-        genre_affinities = {}
-        if hidden_config['genre_affinity']['enabled']:
-            for genre in GENRE_CONFIG['genres']:
-                min_eff, max_eff = hidden_config['genre_affinity']['affinity_range']
-                genre_affinities[genre] = random.uniform(min_eff, max_eff)
-
         tasks = []
 
         # 基本的なタスクを生成
         for i in range(self.num_tasks):
             task = Task.generate_random_task(i, self.start_time)
-
-            # タスクに隠れパラメータを付与
-            if hidden_config['enabled']:
-                # 時間変動率
-                variance_config = hidden_config['task_duration_variance']
-                task._hidden_duration_multiplier = random.gauss(
-                    variance_config['mean'],
-                    variance_config['std']
-                )
-                task._hidden_duration_multiplier = max(
-                    variance_config['min_multiplier'],
-                    min(variance_config['max_multiplier'], task._hidden_duration_multiplier)
-                )
-
-                # ジャンル適性
-                task._hidden_genre_affinity = genre_affinities.get(task.genre, 0.0)
-            else:
-                task._hidden_duration_multiplier = 1.0
-                task._hidden_genre_affinity = 0.0
-
             tasks.append(task)
 
         # 合計スコアを調整（指定がある場合）
@@ -309,9 +248,8 @@ class TaskSchedulingSimulation:
 
                 # タスク実行
                 concentration.apply_genre_switch_effect(selected_task.genre)
-                efficiency = concentration.work(selected_task.base_duration_minutes)
-                hidden_multiplier = getattr(selected_task, '_hidden_duration_multiplier', 1.0)
-                actual_duration = selected_task.base_duration_minutes * hidden_multiplier * efficiency
+                efficiency = concentration.work(selected_task.base_duration_minutes, selected_task.priority.value)
+                actual_duration = selected_task.base_duration_minutes * efficiency
 
                 selected_task.is_completed = True
                 completed_tasks.append(selected_task)

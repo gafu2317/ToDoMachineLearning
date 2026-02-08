@@ -43,9 +43,8 @@ class Scheduler:
             task.base_duration_minutes,
             task.priority.value
         )
-        # 隠れパラメータによる実際の時間変動を適用（スケジューラーは事前に知らない）
-        hidden_multiplier = getattr(task, '_hidden_duration_multiplier', 1.0)
-        actual_duration = task.base_duration_minutes * hidden_multiplier * efficiency
+        # 実際の所要時間を計算
+        actual_duration = task.base_duration_minutes * efficiency
 
         # タスクは常に完了する
         task.is_completed = True

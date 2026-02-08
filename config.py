@@ -181,35 +181,6 @@ GENRE_CONFIG = {
 # パーソナルデータファイルのパス
 PERSONAL_DATA_FILE = 'personal_data.json'
 
-# 隠れパラメータ設定
-HIDDEN_PARAMETERS_CONFIG = {
-    'enabled': True,
-
-    # 真の疲労係数のバリエーション
-    'decay_factor_variations': {
-        'very_short': 1.6,
-        'short': 1.3,
-        'medium': 1.0,
-        'long': 0.8,
-        'very_long': 0.6
-    },
-
-    # タスク時間の変動率
-    'task_duration_variance': {
-        'min_multiplier': 0.8,
-        'max_multiplier': 1.4,
-        'mean': 1.0,
-        'std': 0.15
-    },
-
-    # ジャンル適性
-    'genre_affinity': {
-        'enabled': True,
-        'affinity_range': (-0.2, 0.3),
-        'num_genres': 4
-    }
-}
-
 # 学習モード設定
 RL_LEARNING_MODE_CONFIG = {
     'train_epsilon': 0.5,
