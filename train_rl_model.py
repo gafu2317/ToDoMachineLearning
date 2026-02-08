@@ -85,9 +85,9 @@ def main():
         episode_rewards.append(episode_reward)
 
         # 進捗表示
-        if (episode + 1) % 20 == 0:
-            avg_reward = sum(total_rewards[-20:]) / 20
-            print(f"  エピソード {episode + 1}/{num_episodes}, 平均報酬: {avg_reward:.1f}, ε: {current_epsilon:.4f}")
+        # if (episode + 1) % 20 == 0:
+        #     avg_reward = sum(total_rewards[-20:]) / 20
+        #     print(f"  エピソード {episode + 1}/{num_episodes}, 平均報酬: {avg_reward:.1f}, ε: {current_epsilon:.4f}")
 
         # エピソード終了処理
         rl_scheduler.reset()
