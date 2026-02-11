@@ -26,8 +26,8 @@ def main():
     # タスクローダーを作成（学習用）
     train_loader = TaskDataLoader(dataset_type='train')
 
-    # 学習エピソード数（パラメータ調整後なので増やす）
-    num_episodes = 10000
+    # 学習エピソード数（報酬簡素化後なので増やす）
+    num_episodes = 20000
 
     # シミュレーション環境を作成
     simulation = TaskSchedulingSimulation(**DEFAULT_SIMULATION_CONFIG)

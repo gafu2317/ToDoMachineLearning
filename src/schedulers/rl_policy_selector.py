@@ -45,6 +45,11 @@ class PolicyBasedQLearningSelector(TaskSelector):
         self.action_history = []
         self.reward_history = []
 
+        # 直前のタスク情報を記憶
+        self.last_task_priority = None  # Priority.value (1-3)
+        self.last_task_genre = None     # ジャンル ('1'-'4')
+        self.consecutive_high_priority_count = 0  # 連続高優先度タスク数
+
     def select_task(self, tasks: List[Task], current_time: datetime,
                     concentration_level: float = 1.0,
                     fatigue_accumulation: float = 0.0) -> Optional[Task]:
@@ -94,15 +99,19 @@ class PolicyBasedQLearningSelector(TaskSelector):
         self.state_history.append(state)
         self.action_history.append(action)
 
+        # 選択したタスクの情報を記憶（次の状態計算で使用）
+        if selected_task:
+            self._update_task_history(selected_task)
+
         return selected_task
 
     def _get_state(self, tasks: List[Task], current_time: datetime,
                    concentration_level: float = 1.0,
                    fatigue_accumulation: float = 0.0) -> Tuple:
-        """現在の状態を取得（改良版）"""
+        """現在の状態を取得（改良版：ジャンルと優先度履歴を含む）"""
 
         if not tasks:
-            return (0, 0, 0, 0, 0, 0)
+            return (0, 0, 0, 0, 0, 0, 0, 0)
 
         # 設定値を読み込み
         from config import RL_STATE_SPACE_CONFIG
@@ -138,10 +147,17 @@ class PolicyBasedQLearningSelector(TaskSelector):
         # 集中力レベル
         concentration_bin = int(concentration_level * config['concentration_bins'])
 
-        # 疲労蓄積度の離散化（新規追加）
+        # 疲労蓄積度の離散化
         fatigue_bin = int(fatigue_accumulation * config['fatigue_bins'])
 
-        return (num_tasks_bin, high_bin, deadline_bin, duration_bin, concentration_bin, fatigue_bin)
+        # 直前のタスク優先度（0=なし, 1-3=LOW/MEDIUM/HIGH）
+        last_priority_bin = self.last_task_priority if self.last_task_priority else 0
+
+        # 直前のタスクジャンル（0=なし, 1-4=ジャンル）
+        last_genre_bin = int(self.last_task_genre) if self.last_task_genre else 0
+
+        return (num_tasks_bin, high_bin, deadline_bin, duration_bin,
+                concentration_bin, fatigue_bin, last_priority_bin, last_genre_bin)
 
     def _select_task_by_policy(self, tasks: List[Task], action: int, current_time: datetime, concentration_level: float = 1.0) -> Task:
         """ポリシーに基づいてタスクを選択"""
@@ -149,13 +165,8 @@ class PolicyBasedQLearningSelector(TaskSelector):
         policy = self.ACTIONS[action]
         config = SCHEDULING_CONFIG
 
-        # まず、実行可能なタスクを優先
-        # 長時間タスクは時間の余裕がある状態でのみ選択
-        short_tasks = [t for t in tasks if t.base_duration_minutes <= config['short_task_threshold']]
-        medium_tasks = [t for t in tasks if t.base_duration_minutes <= config['medium_task_threshold']]
-
-        # 選択候補: 短いタスクを優先、なければ中程度、なければ全体
-        candidate_tasks = short_tasks if short_tasks else (medium_tasks if medium_tasks else tasks)
+        # 全タスクを候補とする（長時間タスクも含む）
+        candidate_tasks = tasks
 
         if policy == "highest_priority":
             # 重要度が最も高いタスク
@@ -216,6 +227,21 @@ class PolicyBasedQLearningSelector(TaskSelector):
         # デフォルト: 最初のタスク
         return candidate_tasks[0] if candidate_tasks else tasks[0]
 
+    def _update_task_history(self, task: Task):
+        """選択したタスクの情報を記憶"""
+        # 連続高優先度カウントを更新
+        if task.priority == Priority.HIGH:
+            if self.last_task_priority == Priority.HIGH.value:
+                self.consecutive_high_priority_count += 1
+            else:
+                self.consecutive_high_priority_count = 1
+        else:
+            self.consecutive_high_priority_count = 0
+
+        # 直前のタスク情報を更新
+        self.last_task_priority = task.priority.value
+        self.last_task_genre = task.genre
+
     def _get_best_action(self, state: Tuple) -> int:
         """状態に対して最適な行動を取得"""
 
@@ -268,59 +294,67 @@ class PolicyBasedQLearningSelector(TaskSelector):
                         completed: bool,
                         current_time: datetime,
                         concentration_level: float,
-                        actual_duration: float = None) -> float:
-        """報酬を計算（バランス改善版）"""
+                        actual_duration: float = None,
+                        remaining_tasks: int = None) -> float:
+        """報酬を計算（完了率も重視）"""
         config = RL_REWARD_CONFIG
         from datetime import timedelta
 
-        # 基本完了報酬（スコアベース）
+        # 基本完了報酬（スコアベース：重要度×時間）
         reward = task.get_score()
 
-        # 1. 締切遵守/違反の報酬/ペナルティ
+        # 1. タスク完了ボーナス（完了率を上げるインセンティブ）
         if completed:
+            # 完了するだけで固定ボーナス（優先度に関係なく）
+            reward += config.get('task_completion_bonus', 80)
+
+            # 2. 締切遵守/違反の報酬/ペナルティ
             estimated_completion = current_time + timedelta(minutes=actual_duration if actual_duration else task.base_duration_minutes)
 
             if estimated_completion <= task.deadline:
                 # 締切を守った
                 reward += config['deadline_met_bonus']
-
-                # 早期完了マージンボーナス（締切より余裕を持って完了）
-                margin_hours = (task.deadline - estimated_completion).total_seconds() / 3600
-                if margin_hours >= config['early_margin_threshold_hours']:
-                    reward += config['early_completion_margin_bonus']
             else:
                 # 締切を破った（大きなペナルティ）
                 reward -= config['deadline_violated_penalty']
 
-        # 2. 高集中完了ボーナス（効率的に作業できた）
-        if concentration_level > config['high_concentration_threshold']:
+        # 3. 高集中完了ボーナス（効率的に作業できた）
+        if concentration_level >= config['high_concentration_threshold']:
             reward += config['high_concentration_bonus']
 
-        # 3. 高優先度ボーナス（高優先度タスクを高集中で完了した場合）
-        if task.priority == Priority.HIGH and concentration_level >= config['high_priority_threshold']:
-            reward += config['high_priority_bonus']
+        # 4. ジャンル継続/切り替えの報酬（personal_dataに基づく）
+        if self.last_task_genre is not None:
+            import json
+            from config import PERSONAL_DATA_FILE
+            with open(PERSONAL_DATA_FILE, 'r') as f:
+                personal_data = json.load(f)
 
-        # 4. 効率ペナルティ（集中力不足で時間がかかった場合）
-        if actual_duration and actual_duration > task.base_duration_minutes:
-            extra_time = actual_duration - task.base_duration_minutes
-            reward -= extra_time * config['time_inefficiency_penalty']
+            is_same_genre = (self.last_task_genre == task.genre)
+            genre_pref_type = personal_data['genre_preference_type']
 
-        # 5. 無謀な選択ペナルティ（集中力が足りないのに難しいタスクを選んだ）
-        from config import TASK_PRIORITY_THRESHOLDS
-        required = TASK_PRIORITY_THRESHOLDS.get(task.priority.value, 0.5)
-        if concentration_level < required:
-            reward -= config['reckless_attempt_penalty']
+            if genre_pref_type == 'same':
+                # 同じジャンルを好む場合
+                if is_same_genre:
+                    reward += config.get('genre_continuity_bonus', 30)
+                else:
+                    reward -= config.get('genre_switch_penalty', 20)
+            else:  # 'switch'
+                # ジャンルを変えるのを好む場合
+                if is_same_genre:
+                    reward -= config.get('genre_continuity_penalty', 20)
+                else:
+                    reward += config.get('genre_switch_bonus', 30)
 
-        # 6. 長時間タスクの早期完了促進（既存のロジックを維持）
-        if task.base_duration_minutes >= config['long_task_threshold']:
-            days_from_start = (current_time - task.created_at).days if hasattr(task, 'created_at') else 0
+        # 5. 連続高優先度タスクのペナルティ（集中力低下を反映）
+        if task.priority == Priority.HIGH and self.consecutive_high_priority_count >= 2:
+            # 2回以上連続でHIGHタスクを選んだ場合
+            penalty = config.get('consecutive_high_priority_penalty', 50) * (self.consecutive_high_priority_count - 1)
+            reward -= penalty
 
-            if days_from_start <= 3:
-                reward += config['early_completion_bonus']
-            elif days_from_start <= 5:
-                reward += config['mid_completion_bonus']
-            elif days_from_start >= 6:
-                reward -= config['late_selection_penalty']
+        # 6. 低優先度タスク完了ボーナス（完了率向上のため）
+        # 残りタスクが少ない時や、低優先度タスクを完了した時にボーナス
+        if completed and task.priority == Priority.LOW:
+            reward += config.get('low_priority_completion_bonus', 40)
 
         return reward
 
@@ -332,6 +366,10 @@ class PolicyBasedQLearningSelector(TaskSelector):
         """エピソード終了時のリセット"""
         self.state_history = []
         self.action_history = []
+        # タスク履歴もリセット
+        self.last_task_priority = None
+        self.last_task_genre = None
+        self.consecutive_high_priority_count = 0
 
     def get_learning_stats(self) -> Dict:
         """学習統計を取得"""
