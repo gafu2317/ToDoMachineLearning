@@ -32,11 +32,6 @@ def main():
     # シミュレーション環境を作成
     simulation = TaskSchedulingSimulation(**DEFAULT_SIMULATION_CONFIG)
 
-    print(f"\nシミュレーション設定:")
-    print(f"  - 期間: {simulation.simulation_days}日間")
-    print(f"  - 1日の作業時間: {simulation.work_hours_per_day}時間")
-    print(f"  - タスク数: {simulation.num_tasks}個")
-    print(f"  - 学習データセット: {train_loader.get_num_datasets()}セット")
 
     # 強化学習スケジューラーを作成（学習モードで）
     concentration = ConcentrationModel(**CONCENTRATION_CONFIG)
@@ -85,9 +80,8 @@ def main():
         episode_rewards.append(episode_reward)
 
         # 進捗表示
-        # if (episode + 1) % 20 == 0:
-        #     avg_reward = sum(total_rewards[-20:]) / 20
-        #     print(f"  エピソード {episode + 1}/{num_episodes}, 平均報酬: {avg_reward:.1f}, ε: {current_epsilon:.4f}")
+        if (episode + 1) % 20 == 0:
+            print(f"  {episode + 1}/{num_episodes}")
 
         # エピソード終了処理
         rl_scheduler.reset()
